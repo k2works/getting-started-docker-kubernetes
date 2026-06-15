@@ -29,7 +29,8 @@ node "billingms :8087" as billing
 node "Axon Server\n:8124 gRPC / :8024 HTTP" as axon
 database "PostgreSQL\n(6 read DB)" as db
 
-利用者 --> fe --> gw
+利用者 --> fe
+fe --> gw
 gw --> auth
 gw --> booking
 gw --> routing

@@ -25,7 +25,9 @@ node "authms / bookingms / routingms\ntrackingms / handlingms / billingms" as ms
 queue "Kafka :9092\n+ ZooKeeper" as kafka
 database "PostgreSQL\n(read DB)" as db
 
-利用者 --> fe --> gw --> ms
+利用者 --> fe
+fe --> gw
+gw --> ms
 ms <--> kafka : produce/consume events
 ms --> db : read model
 @enduml
