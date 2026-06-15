@@ -45,6 +45,8 @@ const APPS = [
     label: 'taskapp（複数コンテナ）',
     kustomize: 'apps/taskapp/k8s/kustomize/base',
     namespace: 'taskapp',
+    // kustomize は namespace: taskapp を指定するが Namespace リソースを含まないため、apply 前に作成する
+    createNs: true,
     k8sSecrets: [
       { path: 'apps/taskapp/k8s/kustomize/base/mysql/secrets/mysql_root_password', content: 'rootpass' },
       { path: 'apps/taskapp/k8s/kustomize/base/mysql/secrets/mysql_user_password', content: 'taskapp_pass' },
