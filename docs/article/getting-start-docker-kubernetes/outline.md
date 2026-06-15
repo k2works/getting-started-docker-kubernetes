@@ -10,19 +10,22 @@
 
 ### 実コード紐づけ方式
 
-すべての解説は `tmp/` 配下に配置された実在のサンプルリポジトリのコードに紐づける。コードを引用するときは出典（リポジトリ名・ファイルパス）を明示し、存在しないコマンドや設定を捏造しない。
+すべての解説は実在のサンプルコードに紐づける。コードを引用するときは出典（パス）を明示し、存在しないコマンドや設定を捏造しない。中心となるサンプルは本リポジトリの `apps/` 配下に実装を配置し、実機で動作検証している。書籍リポジトリの一部（pipecd-examples / cloudshell / gihyo-docker-kuberbetes）は `apps/` には収録せず、補助参照として扱う。
 
-- **echo** — 単一コンテナの最小サンプル（Go 製の Hello サーバ）。第 1〜2 章、第 5 章、第 8 章で利用
-- **taskapp** — 複数コンテナ構成のタスク管理アプリ（api / web / mysql / migrator / nginx）。第 3〜4 章、第 6 章で利用
-- **container-kit** — デバッグ・プロキシ・ジョブ用の補助コンテナ集。第 12 章、付録 C で利用
-- **image-bootstrap** — distroless + 非 root + Trivy によるセキュアイメージのサンプル。第 10 章、付録 C で利用
-- **echo-bootstrap** — echo を Kubernetes へデプロイする Kustomize マニフェスト。第 6 章、第 11 章で利用
-- **argocd-example-apps** — Argo CD 用のサンプルアプリ（guestbook、helm、kustomize、blue-green）。第 11 章で利用
+### apps/ 配下に配置するサンプル
+
+- **echo**（`apps/echo/`）— 単一コンテナの最小サンプル（Go 製の Hello サーバ）。第 1〜2 章、第 5 章、第 8 章、第 10 章で利用
+- **taskapp**（`apps/taskapp/`）— 複数コンテナ構成のタスク管理アプリ（api / web / mysql / migrator / nginx）。第 3〜4 章、第 6 章、第 9 章で利用
+- **container-kit**（`apps/container-kit/`）— デバッグ・プロキシ・ジョブ用の補助コンテナ集。第 7 章、第 12 章、付録 C で利用
+- **image-bootstrap**（`apps/image-bootstrap/`）— distroless + 非 root + Trivy によるセキュアイメージのサンプル。第 10 章、付録 C で利用
+- **echo-bootstrap**（`apps/cd/echo-bootstrap/`）— echo を Kubernetes へデプロイする Kustomize マニフェスト。第 6 章、第 11 章で利用
+- **argocd-example-apps**（`apps/cd/argocd-example-apps/`）— Argo CD 用のサンプルアプリ（guestbook、helm、kustomize、blue-green）。第 11 章で利用
+
+### 補助参照（apps/ には収録しない書籍リポジトリ）
+
 - **pipecd-examples** — PipeCD 用のデプロイ定義（canary、bluegreen、analysis など）。第 11 章で利用
 - **cloudshell** — AWS（EKS / ECS）構築スクリプトと CDK。付録 B で利用
-- **gihyo-docker-kuberbetes** — 旧版のサンプルコード（simple-pod/replicaset/deployment/service/ingress、Helm チャートなど）。第 5 章、第 7〜10 章の補助参照
-
-> 注: `getting-started-algorithm` ディレクトリは参考コードの対象外とする。
+- **gihyo-docker-kuberbetes** — 書籍のサンプルコード（simple-pod/replicaset/deployment/service/ingress、Helm チャートなど）。第 5 章、第 7〜10 章の補助参照
 
 ### 文体・表記
 
@@ -36,21 +39,21 @@
 
 | 章 | ファイル | テーマ | 主な参考ソース |
 |----|---------|--------|---------------|
-| 第 1 章 | `01-container-and-docker-basics.md` | コンテナと Docker の基礎 | `echo/Dockerfile`, `container-kit/containers/` |
-| 第 2 章 | `02-container-deployment.md` | コンテナのデプロイ | `echo/` (main.go, Dockerfile, compose.yaml) |
-| 第 3 章 | `03-practical-container-build-deploy.md` | 実用的なコンテナの構築とデプロイ | `echo/Dockerfile.slim`, `taskapp/containers/` |
-| 第 4 章 | `04-multi-container-application.md` | 複数コンテナ構成でのアプリケーション構築 | `taskapp/` (compose.yaml, containers, Tiltfile) |
-| 第 5 章 | `05-kubernetes-introduction.md` | Kubernetes 入門 | `gihyo-docker-kuberbetes/ch05/simple-*.yaml`, `echo/k8s` |
-| 第 6 章 | `06-kubernetes-deploy-cluster.md` | Kubernetes のデプロイ・クラスタ構築 | `taskapp/k8s/plain/local/`, `echo-bootstrap/` |
-| 第 7 章 | `07-kubernetes-advanced.md` | Kubernetes の発展的な利用 | `container-kit/containers/time-limit-job`, `gihyo*/ch09` |
-| 第 8 章 | `08-kubernetes-packaging.md` | Kubernetes アプリケーションのパッケージング | `taskapp/k8s/kustomize/`, `gihyo*/ch07`, `argocd-example-apps/helm-guestbook` |
-| 第 9 章 | `09-container-operations.md` | コンテナの運用 | `taskapp/containers/nginx-*`, `taskapp/containers/mysql` |
-| 第 10 章 | `10-optimal-container-image.md` | 最適なコンテナイメージ作成と運用 | `echo/Dockerfile.slim`, `image-bootstrap/` |
-| 第 11 章 | `11-continuous-delivery.md` | コンテナにおける継続的デリバリー | `argocd-example-apps/`, `pipecd-examples/`, `echo-bootstrap/` |
-| 第 12 章 | `12-container-use-cases.md` | コンテナのさまざまな活用方法 | `container-kit/`, `gihyo*/chA` |
-| 付録 A | `appendix-a-dev-tools-setup.md` | 開発ツールのセットアップ | `taskapp/.tool-versions`, `taskapp/hack/` |
-| 付録 B | `appendix-b-orchestration-environments.md` | さまざまなコンテナオーケストレーション環境 | `cloudshell/aws/`, `taskapp/k8s/plain/aks`, `pipecd-examples/ecs` |
-| 付録 C | `appendix-c-tips.md` | コンテナ開発・運用の Tips | `container-kit/`, `image-bootstrap/trivy.yaml` |
+| 第 1 章 | `01-container-and-docker-basics.md` | コンテナと Docker の基礎 | `apps/echo/Dockerfile`, `apps/container-kit/containers/` |
+| 第 2 章 | `02-container-deployment.md` | コンテナのデプロイ | `apps/echo/` (main.go, Dockerfile, compose.yaml) |
+| 第 3 章 | `03-practical-container-build-deploy.md` | 実用的なコンテナの構築とデプロイ | `apps/echo/Dockerfile.slim`, `apps/taskapp/containers/` |
+| 第 4 章 | `04-multi-container-application.md` | 複数コンテナ構成でのアプリケーション構築 | `apps/taskapp/` (compose.yaml, containers, Tiltfile) |
+| 第 5 章 | `05-kubernetes-introduction.md` | Kubernetes 入門 | `gihyo-docker-kuberbetes/ch05/simple-*.yaml`, `apps/echo/k8s` |
+| 第 6 章 | `06-kubernetes-deploy-cluster.md` | Kubernetes のデプロイ・クラスタ構築 | `apps/taskapp/k8s/plain/local/`, `apps/cd/echo-bootstrap/` |
+| 第 7 章 | `07-kubernetes-advanced.md` | Kubernetes の発展的な利用 | `apps/container-kit/containers/time-limit-job`, `gihyo*/ch09` |
+| 第 8 章 | `08-kubernetes-packaging.md` | Kubernetes アプリケーションのパッケージング | `apps/taskapp/k8s/kustomize/`, `gihyo*/ch07`, `apps/cd/argocd-example-apps/helm-guestbook` |
+| 第 9 章 | `09-container-operations.md` | コンテナの運用 | `apps/taskapp/containers/nginx-*`, `apps/taskapp/containers/mysql` |
+| 第 10 章 | `10-optimal-container-image.md` | 最適なコンテナイメージ作成と運用 | `apps/echo/Dockerfile.slim`, `apps/image-bootstrap/` |
+| 第 11 章 | `11-continuous-delivery.md` | コンテナにおける継続的デリバリー | `apps/cd/argocd-example-apps/`, `pipecd-examples/`, `apps/cd/echo-bootstrap/` |
+| 第 12 章 | `12-container-use-cases.md` | コンテナのさまざまな活用方法 | `apps/container-kit/`, `gihyo*/chA` |
+| 付録 A | `appendix-a-dev-tools-setup.md` | 開発ツールのセットアップ | `apps/taskapp/.tool-versions`, `apps/taskapp/hack/` |
+| 付録 B | `appendix-b-orchestration-environments.md` | さまざまなコンテナオーケストレーション環境 | `cloudshell/aws/`, `apps/taskapp/k8s/plain/aks`, `pipecd-examples/ecs` |
+| 付録 C | `appendix-c-tips.md` | コンテナ開発・運用の Tips | `apps/container-kit/`, `apps/image-bootstrap/trivy.yaml` |
 
 ## ファイル構成
 
@@ -130,4 +133,4 @@ docs/article/getting-start-docker-kubernetes/
 ## 参考文献
 
 - 『Docker/Kubernetes 実践コンテナ開発入門（第 2 版）』 — 山田明憲
-- 各章のサンプルコード（`tmp/` 配下のリポジトリ群）
+- 各章のサンプルコード（`apps/` 配下に配置。一部は書籍リポジトリの補助参照）
