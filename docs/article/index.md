@@ -2,6 +2,10 @@
 
 ## はじめに
 
+![Docker/Kubernetes 実践コンテナ解説の全体像を説明する 4 コマ漫画](getting-start-docker-kubernetes/images/overview-comic.png)
+
+*Docker の基礎から Kubernetes、継続的デリバリー、ケーススタディまでを、手を動かしながら段階的に学びます。*
+
 Docker と Kubernetes を使って、コンテナによるアプリケーションの開発・デプロイ・運用を実践的に学ぶシリーズです。
 
 書籍『Docker/Kubernetes 実践コンテナ開発入門（第 2 版）』の章立てに沿って、コンテナの基礎から複数コンテナ構成、Kubernetes、継続的デリバリーまでを段階的に解説します。さらに、実在の業務システム（国際貨物輸送システム）の 4 アーキテクチャを題材に、Compose・Kustomize・Helm を比較するケーススタディを収録しています。各章は実際に動作するサンプルコード（[`apps/`](https://github.com/k2works/getting-started-docker-kubernetes/tree/main/apps)）に紐づいており、手を動かしながら理解できます。
