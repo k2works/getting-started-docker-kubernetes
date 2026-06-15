@@ -73,6 +73,11 @@ docs/article/getting-start-docker-kubernetes/
 ├── 10-optimal-container-image.md            # 第 10 章
 ├── 11-continuous-delivery.md                # 第 11 章
 ├── 12-container-use-cases.md                # 第 12 章
+├── 13-case-monolith-compose-vs-kustomize.md       # 第 13 章（ケーススタディ 1）
+├── 14-case-event-driven-kustomize-vs-helm.md      # 第 14 章（ケーススタディ 2）
+├── 15-case-escqrs-axon-kustomize-vs-helm.md       # 第 15 章（ケーススタディ 3）
+├── 16-case-escqrs-kafka-kustomize-vs-helm.md      # 第 16 章（ケーススタディ 4）
+├── 17-case-comparison-summary.md                  # 第 17 章（ケーススタディ まとめ）
 ├── appendix-a-dev-tools-setup.md            # 付録 A
 ├── appendix-b-orchestration-environments.md # 付録 B
 └── appendix-c-tips.md                        # 付録 C
@@ -122,6 +127,18 @@ docs/article/getting-start-docker-kubernetes/
 | 11 | コンテナにおける継続的デリバリー | Flux、Argo CD、PipeCD |
 | 12 | コンテナのさまざまな活用方法 | 開発環境統一、CLI、負荷テスト |
 
+### 第 5 部: 国際貨物輸送システムのケーススタディ（第 13〜17 章）
+
+書籍の基礎を踏まえ、実在の貨物追跡システム（Cargo Tracker）の 4 つのアーキテクチャ実装を題材に、コンテナデプロイ手段（Docker Compose / Kustomize / Helm）を比較する。アーキテクチャの違いがデプロイ手段の選択にどう影響するかを、実装と動作検証を通じて学ぶ。
+
+| 章 | テーマ | 比較軸 |
+|----|--------|--------|
+| 13 | モノリス（case-1）のデプロイ | Docker Compose 対 Kustomize |
+| 14 | イベント駆動マイクロサービス（case-2）のデプロイ | Kustomize 対 Helm |
+| 15 | ES/CQRS マイクロサービス（Axon、case-3）のデプロイ | Kustomize 対 Helm |
+| 16 | ES/CQRS マイクロサービス（Kafka、case-4）のデプロイ | Kustomize 対 Helm |
+| 17 | ケーススタディ実装比較まとめ | 全アーキテクチャ × デプロイ手段の総括 |
+
 ### 付録（App.A〜C）
 
 | 付録 | テーマ | 内容 |
@@ -130,7 +147,65 @@ docs/article/getting-start-docker-kubernetes/
 | B | さまざまなコンテナオーケストレーション環境 | GKE、EKS、AKS、オンプレミス、ECS |
 | C | コンテナ開発・運用の Tips | コンテナランタイム、Kubernetes Tips、生成 AI 活用、apk |
 
+## 第 5 部 ケーススタディの実装・執筆計画
+
+### ねらい
+
+第 1〜12 章で学んだコンテナ・Kubernetes・パッケージング・CD の知識を、実在の業務システム（国際貨物輸送システム = Cargo Tracker）の 4 アーキテクチャに適用する。同一ドメインを異なるアーキテクチャで実装した題材を使い、「アーキテクチャの複雑さが増すほど、宣言的・テンプレート化されたデプロイ手段（Kustomize → Helm）の価値が高まる」ことを実装と検証で示す。
+
+### 題材（参考ソース）
+
+| ケース | アーキテクチャ | 参考ソース | 主な構成要素 |
+|--------|--------------|-----------|------------|
+| case-1 | モノリス | `tmp/case-1` | Spring Boot 単一アプリ（port 8080）+ PostgreSQL |
+| case-2 | イベント駆動マイクロサービス | `tmp/case-2` | 7 マイクロサービス（auth/booking/routing/tracking/handling/billing/gateway）+ frontend |
+| case-3 | ES/CQRS マイクロサービス（Axon） | `tmp/case-3` | Axon 5（Command/Event Sourcing）+ MyBatis（Read）構成のマイクロサービス群 |
+| case-4 | ES/CQRS マイクロサービス（Kafka） | `tmp/case-4` | Kafka + ZooKeeper + PostgreSQL + マイクロサービス群。**`ops/k8s`（Kustomize）と `ops/helm` を既に実装済み**（参照モデル） |
+
+### 章とソース・比較軸の対応
+
+| 章 | ファイル | 参考ソース | 実装する成果物 | 比較軸 |
+|----|---------|-----------|--------------|--------|
+| 第 13 章 | `13-case-monolith-compose-vs-kustomize.md` | `tmp/case-1` | Docker Compose 一式 + Kustomize マニフェスト | Compose 対 Kustomize |
+| 第 14 章 | `14-case-event-driven-kustomize-vs-helm.md` | `tmp/case-2` | Kustomize（base/overlay）+ Helm チャート | Kustomize 対 Helm |
+| 第 15 章 | `15-case-escqrs-axon-kustomize-vs-helm.md` | `tmp/case-3` | Kustomize + Helm チャート | Kustomize 対 Helm |
+| 第 16 章 | `16-case-escqrs-kafka-kustomize-vs-helm.md` | `tmp/case-4` | 既存の `ops/k8s`・`ops/helm` を整理・検証 | Kustomize 対 Helm |
+| 第 17 章 | `17-case-comparison-summary.md` | 第 13〜16 章 | （比較表・指針） | 全体総括 |
+
+### apps/ への実装方針
+
+ケーススタディのデプロイ成果物は `apps/case-studies/` 配下に配置する。アプリ本体のソースは肥大なため、必要に応じて参考ソースからビルドするか、ビルド済みイメージを参照する。
+
+```
+apps/case-studies/
+├── case-1-monolith/        # 第 13 章: compose/ と k8s/kustomize/
+├── case-2-event-driven/    # 第 14 章: k8s/kustomize/ と helm/
+├── case-3-escqrs-axon/     # 第 15 章: k8s/kustomize/ と helm/
+└── case-4-escqrs-kafka/    # 第 16 章: k8s/kustomize/ と helm/（tmp/case-4 の ops を基に）
+```
+
+### 実装・検証・執筆のワークフロー
+
+各章は「実装 → 動作検証 → 執筆」の順で進める。
+
+1. **実装**: 参考ソースを基に、対象のデプロイ成果物（Compose / Kustomize / Helm）を `apps/case-studies/` に作成する。
+2. **動作検証**: Docker と ローカル Kubernetes（Docker Desktop / kind）で実際にデプロイし、起動・疎通を確認する。検証時に発見した不具合は修正し、修正点を記録する。
+3. **執筆**: 検証で確認した実コード・コマンド・結果に基づき、比較記事を執筆する。捏造せず、出典（`apps/case-studies/...`）を明示する。
+
+各章の比較記事には、最低限以下を含める。
+
+- アーキテクチャ概要（ドメインとサービス構成）
+- 各デプロイ手段の実装（マニフェスト・チャートの要点）
+- 環境差分の扱い（overlay / values による上書き）
+- 動作検証の手順と結果
+- 比較考察（記述量・重複・再利用性・学習コスト・適性）
+
+### 進め方
+
+規模が大きいため、第 13 章（case-1）から順に「実装 → 検証 → 執筆」を 1 章ずつ完了させ、章単位でコミットする。第 17 章は第 13〜16 章の成果を踏まえて最後に執筆する。
+
 ## 参考文献
 
 - 『Docker/Kubernetes 実践コンテナ開発入門（第 2 版）』 — 山田明憲
+- 国際貨物輸送システム（Cargo Tracker）ケーススタディ実装（`tmp/case-1`〜`tmp/case-4`、実装は `apps/case-studies/` に配置）
 - 各章のサンプルコード（`apps/` 配下に配置。一部は書籍リポジトリの補助参照）
