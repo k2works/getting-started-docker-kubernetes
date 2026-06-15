@@ -1,5 +1,9 @@
 # 第 8 章 Kubernetes アプリケーションのパッケージング
 
+![Kubernetes アプリケーションのパッケージングを説明する 4 コマ漫画](images/chapter-08-comic.png)
+
+*マニフェストを整理し、テンプレートと環境別の値で再利用できるリリース単位にまとめます。*
+
 ## はじめに
 
 前章までで、Pod、Deployment、Service、Ingress、StatefulSet、Job といった Kubernetes のリソースを、素の YAML マニフェストとして記述しデプロイしてきました。小さなアプリケーションであれば、これらのマニフェストを `kubectl apply -f` で適用するだけで十分に運用できます。

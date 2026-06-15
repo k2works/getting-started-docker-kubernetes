@@ -1,5 +1,9 @@
 # 第 6 章 Kubernetes のデプロイ・クラスタ構築
 
+![Kubernetes クラスタへのデプロイを説明する 4 コマ漫画](images/chapter-06-comic.png)
+
+*マニフェストを適用し、Deployment と Service を観察しながら、ローリング更新で安全に変更します。*
+
 ## はじめに
 
 前章では Kubernetes の基本的なリソース（Pod、ReplicaSet、Deployment、Service など）と、それらをマニフェストで宣言的に管理する考え方を学びました。この章では、これまでに学んだ知識を総動員して、複数のコンポーネントからなる実用的なアプリケーションを Kubernetes 上にデプロイします。

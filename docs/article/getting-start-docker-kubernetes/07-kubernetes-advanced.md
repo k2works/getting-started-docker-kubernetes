@@ -1,5 +1,9 @@
 # 第 7 章 Kubernetes の発展的な利用
 
+![Kubernetes の発展的な利用を説明する 4 コマ漫画](images/chapter-07-comic.png)
+
+*設定、Secret、Probe、リソース制御、オートスケールを組み合わせて運用しやすいクラスタにします。*
+
 ## はじめに
 
 前章では Kubernetes の基本的なリソース（Pod、ReplicaSet、Deployment、Service、Ingress）を使ってアプリケーションをデプロイする方法を学びました。基本的なデプロイができるようになると、次に直面するのは「本番運用」で求められる、より発展的な要求です。
