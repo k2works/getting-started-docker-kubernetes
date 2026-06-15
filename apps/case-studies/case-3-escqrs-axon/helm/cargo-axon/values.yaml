@@ -1,0 +1,65 @@
+imageTag: "0.0.1"
+imagePullPolicy: IfNotPresent
+
+secret:
+  postgresUser: cargo
+  postgresPassword: cargo-dev-password
+  postgresDb: postgres
+  jwtSecret: dev-only-jwt-secret-please-override-in-prod-32bytes
+
+postgres:
+  multipleDatabases: "auth_db,booking_read_db,routing_read_db,tracking_read_db,handling_read_db,billing_read_db"
+
+axonserver:
+  image: axoniq/axonserver:2026.0.0
+
+# バックエンドマイクロサービス（テンプレートでループ展開）
+services:
+  - name: authms
+    port: 8081
+    database: auth_db
+    axon: false
+    jwt: true
+  - name: bookingms
+    port: 8082
+    database: booking_read_db
+    axon: true
+    jwt: false
+  - name: routingms
+    port: 8083
+    database: routing_read_db
+    axon: true
+    jwt: false
+  - name: handlingms
+    port: 8085
+    database: handling_read_db
+    axon: true
+    jwt: false
+  - name: trackingms
+    port: 8086
+    database: tracking_read_db
+    axon: true
+    jwt: false
+  - name: billingms
+    port: 8087
+    database: billing_read_db
+    axon: true
+    jwt: false
+
+gateway:
+  name: gatewayms
+  port: 8080
+  routes:
+    AUTHMS_URL: http://authms:8081
+    BOOKINGMS_URL: http://bookingms:8082
+    ROUTINGMS_URL: http://routingms:8083
+    HANDLINGMS_URL: http://handlingms:8085
+    TRACKINGMS_URL: http://trackingms:8086
+    BILLINGMS_URL: http://billingms:8087
+
+frontend:
+  name: frontend
+  port: 8080
+
+ingress:
+  host: cargo-axon.local

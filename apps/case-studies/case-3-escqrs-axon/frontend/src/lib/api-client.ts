@@ -1,0 +1,88 @@
+import { env } from '../config/env'
+import { useAuthStore } from '../stores/authStore'
+
+export class ApiError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
+async function request<T>(baseUrl: string, path: string, options: RequestInit = {}): Promise<T> {
+  const token = useAuthStore.getState().token
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...options.headers,
+  }
+
+  const response = await fetch(`${baseUrl}${path}`, { ...options, headers })
+
+  if (response.status === 401) {
+    useAuthStore.getState().logout()
+    throw new ApiError(401, 'Unauthorized')
+  }
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}))
+    throw new ApiError(response.status, error.message ?? 'Request failed')
+  }
+
+  return response.json()
+}
+
+export const authApiClient = {
+  get: <T>(path: string) => request<T>(env.authApiBaseUrl, path),
+  post: <T>(path: string, body: unknown) =>
+    request<T>(env.authApiBaseUrl, path, { method: 'POST', body: JSON.stringify(body) }),
+  put: <T>(path: string, body: unknown) =>
+    request<T>(env.authApiBaseUrl, path, { method: 'PUT', body: JSON.stringify(body) }),
+  delete: <T>(path: string) =>
+    request<T>(env.authApiBaseUrl, path, { method: 'DELETE' }),
+}
+
+export const bookingApiClient = {
+  get: <T>(path: string) => request<T>(env.bookingApiBaseUrl, path),
+  post: <T>(path: string, body: unknown) =>
+    request<T>(env.bookingApiBaseUrl, path, { method: 'POST', body: JSON.stringify(body) }),
+  put: <T>(path: string, body: unknown) =>
+    request<T>(env.bookingApiBaseUrl, path, { method: 'PUT', body: JSON.stringify(body) }),
+  delete: <T>(path: string) =>
+    request<T>(env.bookingApiBaseUrl, path, { method: 'DELETE' }),
+}
+
+export const routingApiClient = {
+  get: <T>(path: string) => request<T>(env.routingApiBaseUrl, path),
+  post: <T>(path: string, body: unknown) =>
+    request<T>(env.routingApiBaseUrl, path, { method: 'POST', body: JSON.stringify(body) }),
+  put: <T>(path: string, body: unknown) =>
+    request<T>(env.routingApiBaseUrl, path, { method: 'PUT', body: JSON.stringify(body) }),
+  delete: <T>(path: string) =>
+    request<T>(env.routingApiBaseUrl, path, { method: 'DELETE' }),
+}
+
+export const handlingApiClient = {
+  get: <T>(path: string) => request<T>(env.handlingApiBaseUrl, path),
+  post: <T>(path: string, body: unknown) =>
+    request<T>(env.handlingApiBaseUrl, path, { method: 'POST', body: JSON.stringify(body) }),
+  put: <T>(path: string, body: unknown) =>
+    request<T>(env.handlingApiBaseUrl, path, { method: 'PUT', body: JSON.stringify(body) }),
+  delete: <T>(path: string) =>
+    request<T>(env.handlingApiBaseUrl, path, { method: 'DELETE' }),
+}
+
+export const trackingApiClient = {
+  get: <T>(path: string) => request<T>(env.trackingApiBaseUrl, path),
+  post: <T>(path: string, body: unknown) =>
+    request<T>(env.trackingApiBaseUrl, path, { method: 'POST', body: JSON.stringify(body) }),
+  put: <T>(path: string, body: unknown) =>
+    request<T>(env.trackingApiBaseUrl, path, { method: 'PUT', body: JSON.stringify(body) }),
+  delete: <T>(path: string) =>
+    request<T>(env.trackingApiBaseUrl, path, { method: 'DELETE' }),
+}
+
+// 後方互換（認証系デフォルト）
+export const apiClient = authApiClient

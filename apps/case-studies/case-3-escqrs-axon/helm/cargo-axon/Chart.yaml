@@ -1,0 +1,6 @@
+apiVersion: v2
+name: cargo-axon
+description: 国際貨物輸送システム（ES/CQRS Axon マイクロサービス版）の Helm チャート
+type: application
+version: 0.1.0
+appVersion: "0.0.1"

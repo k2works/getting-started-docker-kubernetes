@@ -1,0 +1,47 @@
+# Heroku デプロイ用プロファイル
+#
+# 用途: Heroku 開発環境デプロイ（IT1 スコープ）
+# - H2 インメモリ DB（PostgreSQL アドオン不要）
+# - Axon Server 不使用（Heroku の gRPC ポート制約回避）
+#   → Simple Command Bus / Event Bus のローカルバスモードで動作
+# - PORT 環境変数でポートを動的設定
+
+server:
+  port: ${PORT:8080}
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:bookingms;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  h2:
+    console:
+      enabled: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+axon:
+  axonserver:
+    enabled: false
+  eventhandling:
+    processors:
+      # IT2 暫定: Axon Server 不使用環境（Heroku）では JDBC token store 用の
+      # TOKENENTRY テーブルが存在しないため、PooledStreamingEventProcessor は
+      # 起動失敗する。同一 JVM 内の EventBus を購読する SubscribingEventProcessor
+      # に切替えて Projection を成立させる（ADR-0008 参照）。
+      "[com.example.cargotracker.bookingms.interfaces.events]":
+        mode: subscribing
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    root: WARN
+    com.example.cargotracker: INFO
+    org.axonframework: WARN

@@ -1,0 +1,42 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cargo-axon
+
+resources:
+  - namespace.yaml
+  - secret.yaml
+  - postgres.yaml
+  - axonserver.yaml
+  - authms.yaml
+  - bookingms.yaml
+  - routingms.yaml
+  - handlingms.yaml
+  - trackingms.yaml
+  - billingms.yaml
+  - gatewayms.yaml
+  - frontend.yaml
+  - ingress.yaml
+
+configMapGenerator:
+  - name: postgres-init
+    files:
+      - init-databases.sh=init-databases.sh
+
+images:
+  - name: cargo3-authms
+    newTag: 0.0.1
+  - name: cargo3-bookingms
+    newTag: 0.0.1
+  - name: cargo3-routingms
+    newTag: 0.0.1
+  - name: cargo3-handlingms
+    newTag: 0.0.1
+  - name: cargo3-trackingms
+    newTag: 0.0.1
+  - name: cargo3-billingms
+    newTag: 0.0.1
+  - name: cargo3-gatewayms
+    newTag: 0.0.1
+  - name: cargo3-frontend
+    newTag: 0.0.1

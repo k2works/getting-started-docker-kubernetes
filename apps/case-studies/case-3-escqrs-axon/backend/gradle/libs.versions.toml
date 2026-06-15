@@ -1,0 +1,137 @@
+# 国際貨物輸送管理システム バージョンカタログ
+#
+# 参照: docs/design/tech_stack.md
+#
+# Phase 0（現在）:
+#   - Java 25 LTS + Spring Boot 4.0 GA + Axon Framework 5.1 GA をすべて Maven Central GA 版で構成。
+#   - Axon 5 公式は Spring Boot 2/3/4 をサポートと明記。
+#   - マイルストーン・RC は使用しない（Spring Milestones リポジトリ不要）。
+
+[versions]
+# 言語・プラットフォーム
+java = "25"
+
+# Spring
+spring-boot = "4.0.6"
+spring-dependency-management = "1.1.7"
+
+# Axon Framework 5
+# axon-server-connector の Maven Central 公開最新が 5.1.0-RC2（GA 未公開）で、
+# starter / connector / axon-test の ABI 整合を取るため Axon 系を一括 5.1.0-RC2 に揃える（ADR-0009）。
+# GA 5.1.0 connector 公開後に 5.1.0 へ昇格予定。
+axon = "5.1.0-RC2"
+
+# MyBatis
+mybatis-spring-boot = "3.0.5"
+mybatis = "3.5.19"
+
+# OpenAPI / Swagger UI（Spring Boot 4 対応は 3.x 系）
+springdoc = "3.0.3"
+
+# Spring Cloud Gateway
+spring-cloud-gateway = "5.0.1"
+
+# JWT
+jjwt = "0.12.6"
+
+# ロガー
+slf4j = "2.0.16"
+
+# 静的コード解析
+checkstyle = "10.21.4"
+spotbugs = "6.1.9"
+
+# テスト
+junit = "5.11.4"
+assertj = "3.27.0"
+mockito = "5.14.2"
+testcontainers = "1.20.4"
+archunit = "1.4.1"
+
+# 変異テスト（ドメイン層の主指標、test_strategy.md L334 / IT3 タスク 5.1）
+# pitest-plugin 1.19.0 は Gradle 9 系の reporting.baseDir 廃止に対応した最初の安定版。
+pitest-plugin = "1.19.0"
+pitest-junit5 = "1.2.3"
+
+[libraries]
+# Spring Boot Starter
+spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web", version.ref = "spring-boot" }
+spring-boot-starter-jdbc = { module = "org.springframework.boot:spring-boot-starter-jdbc", version.ref = "spring-boot" }
+spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation", version.ref = "spring-boot" }
+spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator", version.ref = "spring-boot" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test", version.ref = "spring-boot" }
+
+# Axon Framework 5
+# - Starter は extensions.spring 配下に分離（Axon 5 で groupId が変更）
+# - axon-test はコア groupId のまま
+axon-spring-boot-starter = { module = "org.axonframework.extensions.spring:axon-spring-boot-starter", version.ref = "axon" }
+# axon-spring-boot-starter は 5.x で server-connector を transitive に含まなくなったため明示依存（ADR-0009）。
+axon-server-connector = { module = "org.axonframework:axon-server-connector", version.ref = "axon" }
+axon-test = { module = "org.axonframework:axon-test", version.ref = "axon" }
+
+# MyBatis
+mybatis-spring-boot-starter = { module = "org.mybatis.spring.boot:mybatis-spring-boot-starter", version.ref = "mybatis-spring-boot" }
+mybatis-spring-boot-starter-test = { module = "org.mybatis.spring.boot:mybatis-spring-boot-starter-test", version.ref = "mybatis-spring-boot" }
+
+# Spring Security
+spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security", version.ref = "spring-boot" }
+spring-security-test = { module = "org.springframework.security:spring-security-test" }
+
+# Spring Boot DevTools（bootRun 時の自動再起動・LiveReload を有効化）
+spring-boot-devtools = { module = "org.springframework.boot:spring-boot-devtools", version.ref = "spring-boot" }
+
+# Spring Cloud Gateway
+spring-cloud-starter-gateway = { module = "org.springframework.cloud:spring-cloud-starter-gateway-server-webflux", version.ref = "spring-cloud-gateway" }
+
+# JWT (jjwt 0.12.x)
+jjwt-api = { module = "io.jsonwebtoken:jjwt-api", version.ref = "jjwt" }
+jjwt-impl = { module = "io.jsonwebtoken:jjwt-impl", version.ref = "jjwt" }
+jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }
+
+# Flyway（DB マイグレーション）
+spring-boot-starter-flyway = { module = "org.springframework.boot:spring-boot-starter-flyway", version.ref = "spring-boot" }
+flyway-core = { module = "org.flywaydb:flyway-core" }
+flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
+
+# OpenAPI / Swagger UI
+springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+
+# データベース
+postgresql = { module = "org.postgresql:postgresql", version = "42.7.4" }
+h2 = { module = "com.h2database:h2", version = "2.3.232" }
+
+# テスト
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
+archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
+sonarqube = { id = "org.sonarqube", version = "6.2.0.5505" }
+spotbugs = { id = "com.github.spotbugs", version.ref = "spotbugs" }
+pitest = { id = "info.solidsoft.pitest", version.ref = "pitest-plugin" }
+
+[bundles]
+spring-web = [
+    "spring-boot-starter-web",
+    "spring-boot-starter-validation",
+    "spring-boot-starter-actuator"
+]
+mybatis = [
+    "spring-boot-starter-jdbc",
+    "mybatis-spring-boot-starter"
+]
+test-unit = [
+    "spring-boot-starter-test",
+    "junit-jupiter",
+    "assertj-core",
+    "mockito-core"
+]
+test-integration = [
+    "testcontainers-postgresql",
+    "testcontainers-junit-jupiter"
+]

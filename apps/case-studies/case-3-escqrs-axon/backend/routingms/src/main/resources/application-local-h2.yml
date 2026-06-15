@@ -1,0 +1,38 @@
+# ローカル開発：H2 インメモリ + Axon ダミー
+#
+# 用途: IDE 起動・最速 TDD ループ。
+# Axon Server は接続できないため bootRun 起動時にリトライログが出るが、
+# ヘルスチェック自体は H2 のみで成立する。
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:routingms;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  # Spring Boot DevTools。詳細は bookingms 側の application-local-h2.yml を参照。
+  devtools:
+    restart:
+      enabled: true
+      poll-interval: 2s
+      quiet-period: 1s
+    livereload:
+      enabled: true
+
+# bookingms 側と同じ理由で voyage の Projection も subscribing モードで動作させる。
+axon:
+  # ADR-0009 以降: connector が classpath に常駐するため、local-h2 では autoconfig
+  # を明示的に無効化し、Axon Server への接続試行をスキップする。
+  axonserver:
+    enabled: false
+  eventhandling:
+    processors:
+      "[com.example.cargotracker.routingms.interfaces.events]":
+        mode: subscribing
