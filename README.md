@@ -1,14 +1,20 @@
-# {project-name}
+# getting-started-docker-kubernetes
 
 ## 概要
 
 ### 目的
 
+Docker と Kubernetes を基礎から実践まで段階的に学ぶための学習用プロジェクトです。コンテナ単体の利用から Docker Compose によるマルチコンテナ構成、Kubernetes・Kustomize・Helm によるオーケストレーションまでを扱います。実在の業務システム「国際貨物輸送システム（Cargo Tracker）」を題材に、モノリス・イベント駆動マイクロサービス・ES/CQRS など複数アーキテクチャのデプロイ手段を比較するケーススタディを通して理解を深めます。あわせて MkDocs による学習ドキュメントの管理基盤を提供します。
+
 ### 前提
 
-| ソフトウェア | バージョン | 備考 |
-| :----------- | :--------- | :--- |
-| nodejs       | 22.x       |      |
+| ソフトウェア | バージョン | 備考                         |
+| :----------- | :--------- | :--------------------------- |
+| Node.js      | 22.x       | Gulp タスク・開発ツール      |
+| Docker       | 最新       | コンテナ実行・Docker Compose |
+| kubectl      | 最新       | Kubernetes 操作              |
+| Kustomize    | 最新       | マニフェスト管理             |
+| Helm         | 最新       | パッケージ管理               |
 
 ## 構成
 
@@ -176,13 +182,13 @@ GHCR からイメージを取得して実行するには：
 
 ```bash
 # イメージをプル
-docker pull ghcr.io/k2works/{project_name}:latest
+docker pull ghcr.io/k2works/getting-started-docker-kubernetes:latest
 
 # または特定バージョン
-docker pull ghcr.io/k2works/{project_name}:0.0.1
+docker pull ghcr.io/k2works/getting-started-docker-kubernetes:0.0.1
 
 # コンテナを実行
-docker run -it -v $(pwd):/srv ghcr.io/k2works/{project_name}:latest
+docker run -it -v $(pwd):/srv ghcr.io/k2works/getting-started-docker-kubernetes:latest
 ```
 
 または、docker-compose を使用してローカルでビルド・実行することもできます：
