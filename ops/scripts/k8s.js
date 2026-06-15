@@ -12,7 +12,7 @@ import path from 'path';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { execSync, spawn } from 'child_process';
 import { fileURLToPath } from 'url';
-import { openUrl } from './shared.js';
+import { openUrl, cleanDockerEnv } from './shared.js';
 
 // ============================================
 // 設定
@@ -74,6 +74,7 @@ const APPS = [
     helm: { chart: 'apps/case-studies/case-2-event-driven/helm/cargo-event', release: 'cargo-event' },
     endpoints: ['kubectl -n cargo-event port-forward svc/gatewayms 18080:8080 → /actuator/health'],
     open: { svc: 'frontend', port: 80, path: '/' },
+    frontend: { dep: 'frontend', container: 'frontend', repo: 'cargo2-frontend', context: 'apps/case-studies/case-2-event-driven/frontend' },
   },
   {
     name: 'case3',
@@ -83,6 +84,7 @@ const APPS = [
     helm: { chart: 'apps/case-studies/case-3-escqrs-axon/helm/cargo-axon', release: 'cargo-axon' },
     endpoints: ['kubectl -n cargo-axon port-forward svc/gatewayms 18080:8080 → /actuator/health'],
     open: { svc: 'frontend', port: 80, path: '/' },
+    frontend: { dep: 'frontend', container: 'frontend', repo: 'cargo3-frontend', context: 'apps/case-studies/case-3-escqrs-axon/frontend' },
   },
   {
     name: 'case4',
@@ -92,6 +94,7 @@ const APPS = [
     helm: { chart: 'apps/case-studies/case-4-escqrs-kafka/helm/cargo-tracker', release: 'cargo' },
     endpoints: ['kubectl -n cargo-tracker port-forward svc/gatewayms 18080:8080 → /actuator/health'],
     open: { svc: 'frontendms', port: 80, path: '/' },
+    frontend: { dep: 'frontendms', container: 'frontendms', repo: 'cargo-tracker/frontendms', context: 'apps/case-studies/case-4-escqrs-kafka/frontend' },
   },
 ];
 
@@ -189,6 +192,32 @@ export default function (gulp) {
       done();
     });
 
+    // frontend をユニークタグで再ビルドして反映する
+    // （Docker Desktop の Kubernetes は同タグの再ビルドをキャッシュし取り込まないため、
+    //  毎回ユニークなタグを付けて kubectl set image で確実に差し替える）
+    if (app.frontend) {
+      gulp.task(`k8s:${app.name}:reload-frontend`, (done) => {
+        requireCluster();
+        const fe = app.frontend;
+        const tag = `reload-${Date.now()}`;
+        const image = `${fe.repo}:${tag}`;
+        console.log(`[${app.name}] frontend を再ビルド: ${image}`);
+        try {
+          execSync(`docker build -t ${image} ${path.join(ROOT, fe.context)}`, {
+            stdio: 'inherit',
+            env: cleanDockerEnv(),
+          });
+        } catch (err) {
+          console.error(`エラー: frontend のビルドに失敗しました\n${err.message}`);
+          process.exit(1);
+        }
+        run(`kubectl -n ${app.namespace} set image deployment/${fe.dep} ${fe.container}=${image}`);
+        run(`kubectl -n ${app.namespace} rollout status deployment/${fe.dep} --timeout=120s`, { ignoreError: true });
+        console.log(`[${app.name}] frontend を ${image} に更新しました`);
+        done();
+      });
+    }
+
     // ブラウザで開く（port-forward しながらブラウザを起動。Ctrl+C で終了）
     if (app.open) {
       gulp.task(`k8s:${app.name}:open`, (done) => {
@@ -256,6 +285,7 @@ ${lines}
     k8s:<name>:delete     Kustomize リソースを削除
     k8s:<name>:status     Pod / Service / Ingress を表示
     k8s:<name>:open       port-forward してブラウザで開く（Ctrl+C で終了）
+    k8s:<name>:reload-frontend  frontend をユニークタグで再ビルドし反映（case2〜4）
     k8s:<name>:build      kubectl kustomize で生成結果を確認
     k8s:<name>:helm       Helm でデプロイ（チャートを持つアプリのみ）
     k8s:<name>:helm:delete  Helm リリースを削除
