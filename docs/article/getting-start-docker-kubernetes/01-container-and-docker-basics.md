@@ -121,7 +121,7 @@ Docker イメージは、複数の読み取り専用「レイヤ」が積み重�
 
 ### Dockerfile を読む
 
-イメージのビルド手順を記述するのが Dockerfile です。最小のサンプルとして、`echo` リポジトリの `echo/Dockerfile` を見てみましょう。
+イメージのビルド手順を記述するのが Dockerfile です。最小のサンプルとして、`echo` リポジトリの `apps/echo/Dockerfile` を見てみましょう。
 
 ```dockerfile
 FROM golang:1.21.6
@@ -144,7 +144,7 @@ CMD ["go", "run", "main.go"]
 - `RUN go mod init` … ビルド時にコマンドを実行します（ここでは Go モジュールの初期化）。
 - `CMD ["go", "run", "main.go"]` … コンテナ起動時に実行するデフォルトコマンドを指定します。
 
-この Dockerfile が動かすアプリケーションは、`echo/main.go` に書かれた、HTTP リクエストに対して文字列を返すだけのシンプルな Web サーバです。
+この Dockerfile が動かすアプリケーションは、`apps/echo/main.go` に書かれた、HTTP リクエストに対して文字列を返すだけのシンプルな Web サーバです。
 
 ```go
 func main() {
@@ -159,7 +159,7 @@ func main() {
 }
 ```
 
-ポート `8080` で待ち受け、`/` へのアクセスに `Hello Container!!` を返します。なお `echo/README-ja.md` には、このサンプルについて次のような注意書きがあります。
+ポート `8080` で待ち受け、`/` へのアクセスに `Hello Container!!` を返します。なお `apps/echo/README-ja.md` には、このサンプルについて次のような注意書きがあります。
 
 > 通常、Go言語のアプリケーションはビルドしてできた実行ファイルをコンテナイメージに含めます。しかし、ここではコンテナイメージのビルド手順をシンプルに読者に伝えるために、実行ファイルを作らずに実行しています。
 
@@ -167,7 +167,7 @@ func main() {
 
 ### さまざまなベースイメージ
 
-ベースイメージは目的に応じて選びます。`container-kit` リポジトリには、用途の異なる補助コンテナの Dockerfile がまとまっています。たとえばデバッグ用コンテナ `container-kit/containers/debug/Dockerfile` は次のようになっています。
+ベースイメージは目的に応じて選びます。`container-kit` リポジトリには、用途の異なる補助コンテナの Dockerfile がまとまっています。たとえばデバッグ用コンテナ `apps/container-kit/containers/debug/Dockerfile` は次のようになっています。
 
 ```dockerfile
 FROM ubuntu:23.10
@@ -180,7 +180,7 @@ RUN apt install -y curl wget git zip telnet vim default-mysql-client iputils-pin
 
 これは Ubuntu をベースに、ネットワーク調査やデータベース接続確認に使うツール群をインストールしたものです。コンテナ環境の中に入って調査するための「踏み台」として使います。
 
-一方、リバースプロキシ用の `container-kit/containers/simple-nginx-proxy/Dockerfile` は、Nginx の公式イメージをベースにしています。
+一方、リバースプロキシ用の `apps/container-kit/containers/simple-nginx-proxy/Dockerfile` は、Nginx の公式イメージをベースにしています。
 
 ```dockerfile
 FROM nginx:1.25.1
@@ -215,7 +215,7 @@ RUN rm /etc/nginx/conf.d/default.conf
 
 ### 用途を選ばない汎用性
 
-コンテナは Web サーバのような常駐型アプリケーションだけのものではありません。一定時間で完了して終了する「ジョブ」もコンテナで表現できます。`container-kit/containers/time-limit-job/Dockerfile` はその一例です。
+コンテナは Web サーバのような常駐型アプリケーションだけのものではありません。一定時間で完了して終了する「ジョブ」もコンテナで表現できます。`apps/container-kit/containers/time-limit-job/Dockerfile` はその一例です。
 
 ```dockerfile
 FROM ubuntu:23.10
@@ -261,7 +261,7 @@ docker run hello-world
 
 ### echo サンプルでイメージのビルドと実行を体験する
 
-先ほど見た `echo` サンプルを使って、イメージのビルドからコンテナ実行までの一連の流れを確認しましょう。`echo/Dockerfile` のあるディレクトリで、次のコマンドを順に実行します。
+先ほど見た `echo` サンプルを使って、イメージのビルドからコンテナ実行までの一連の流れを確認しましょう。`apps/echo/Dockerfile` のあるディレクトリで、次のコマンドを順に実行します。
 
 ```bash
 # Dockerfile からイメージをビルドする（-t でイメージ名を付ける）
@@ -283,7 +283,7 @@ docker run -p 8080:8080 example/echo:latest
 curl http://localhost:8080/
 ```
 
-`echo/main.go` の実装どおり、`Hello Container!!` という応答が返ってきます。アプリケーションのソースを直接インストールせず、コンテナを起動するだけで動かせたことが、コンテナの再現性とポータビリティを体感できる瞬間です。
+`apps/echo/main.go` の実装どおり、`Hello Container!!` という応答が返ってきます。アプリケーションのソースを直接インストールせず、コンテナを起動するだけで動かせたことが、コンテナの再現性とポータビリティを体感できる瞬間です。
 
 ### よく使う基本コマンド
 
@@ -325,4 +325,4 @@ curl http://localhost:8080/
 ### 参考
 
 - 『Docker/Kubernetes 実践コンテナ開発入門（第 2 版）』 — 山田明憲
-- サンプルコード: `echo/`、`container-kit/containers/`（`tmp/` 配下）
+- サンプルコード: `apps/echo/`、`apps/container-kit/containers/`（`tmp/` 配下）

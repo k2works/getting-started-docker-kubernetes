@@ -221,7 +221,7 @@ echo '{
 
 ### ビルドツールを含んだ素朴なイメージ
 
-まず、`echo` リポジトリの素朴版 `echo/Dockerfile` を見ます。
+まず、`echo` リポジトリの素朴版 `apps/echo/Dockerfile` を見ます。
 
 ```dockerfile
 FROM golang:1.21.6
@@ -239,7 +239,7 @@ CMD ["go", "run", "main.go"]
 
 ### Multi-stage で成果物だけを残す
 
-これを最適化したのが `echo/Dockerfile.slim` です。
+これを最適化したのが `apps/echo/Dockerfile.slim` です。
 
 ```dockerfile
 FROM --platform=$TARGETPLATFORM golang:1.21.6 AS build
@@ -269,14 +269,14 @@ CMD ["echo"]
 
 | Dockerfile | ベース | 最終イメージに含まれるもの | 傾向 |
 |------------|--------|---------------------------|------|
-| `echo/Dockerfile` | `golang:1.21.6` | Go ツールチェーン + ソース + `go run` | 非常に大きい（数百 MB 規模） |
-| `echo/Dockerfile.slim` | `distroless/base-debian11` | 静的バイナリ `echo` のみ | 非常に小さい |
+| `apps/echo/Dockerfile` | `golang:1.21.6` | Go ツールチェーン + ソース + `go run` | 非常に大きい（数百 MB 規模） |
+| `apps/echo/Dockerfile.slim` | `distroless/base-debian11` | 静的バイナリ `echo` のみ | 非常に小さい |
 
 > 注: 正確なサイズは Go のバージョンや環境で変わるため、実際の値は `docker images` で確認してください。一般に、Go ツールチェーンを含むイメージは数百 MB に達するのに対し、distroless にバイナリだけを載せたイメージは桁違いに小さくなります。
 
 ```plantuml
 @startuml
-title Multi-stage builds（echo/Dockerfile.slim）
+title Multi-stage builds（apps/echo/Dockerfile.slim）
 
 rectangle "build ステージ\n(golang:1.21.6)" as B {
   card "COPY . ." as src
@@ -324,7 +324,7 @@ docker buildx build \
 
 ### マルチプラットフォームビルド
 
-`echo/Dockerfile.slim` と `image-bootstrap/Dockerfile` には、マルチプラットフォーム対応のための仕掛けが入っています。再掲します。
+`apps/echo/Dockerfile.slim` と `apps/image-bootstrap/Dockerfile` には、マルチプラットフォーム対応のための仕掛けが入っています。再掲します。
 
 ```dockerfile
 FROM --platform=$TARGETPLATFORM golang:1.21.6 AS build
@@ -343,7 +343,7 @@ RUN GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -o bin/echo main.go
 
 `GOARCH=${TARGETARCH}` を指定することで、Go のクロスコンパイル機能を使い、対象アーキテクチャ向けのバイナリを生成しています。これにより、1 度の `buildx` 実行で amd64 と arm64 の両方のイメージを作れます。Intel/AMD のサーバと Apple Silicon や ARM サーバが混在する現代では、この対応がほぼ必須になっています。
 
-`image-bootstrap/Dockerfile` の build ステージでは `--platform=$BUILDPLATFORM` を使っています。これは「ビルドを実行しているマシンのネイティブプラットフォーム」を指し、ビルドホスト上でクロスコンパイルする（エミュレーションを避けて高速化する）狙いがあります。`$BUILDPLATFORM` でビルドし、`GOARCH` で出力先アーキテクチャを切り替えるのが、Go におけるマルチプラットフォームビルドの定石です。
+`apps/image-bootstrap/Dockerfile` の build ステージでは `--platform=$BUILDPLATFORM` を使っています。これは「ビルドを実行しているマシンのネイティブプラットフォーム」を指し、ビルドホスト上でクロスコンパイルする（エミュレーションを避けて高速化する）狙いがあります。`$BUILDPLATFORM` でビルドし、`GOARCH` で出力先アーキテクチャを切り替えるのが、Go におけるマルチプラットフォームビルドの定石です。
 
 ### キャッシュの活用
 
@@ -369,7 +369,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 コンテナはデフォルトで root として実行されます。万が一コンテナが乗っ取られた場合、root だとホストへの影響範囲が広がりかねません。最小権限の原則に従い、アプリは必要最小限の権限を持つ非 root ユーザで動かすべきです。
 
-`image-bootstrap/Dockerfile` は、distroless の nonroot バリアントと `USER` 指定を組み合わせて、非 root 実行を実現しています。
+`apps/image-bootstrap/Dockerfile` は、distroless の nonroot バリアントと `USER` 指定を組み合わせて、非 root 実行を実現しています。
 
 ```dockerfile
 FROM --platform=$BUILDPLATFORM golang:1.21.6 AS build
@@ -396,13 +396,13 @@ CMD ["server"]
 2. **`COPY --chown=nonroot:nonroot`**: build ステージから成果物をコピーする際に、所有者を `nonroot` ユーザに設定します。これにより、`nonroot` ユーザがバイナリを実行できるようになります。
 3. **`USER nonroot`**: 以降のプロセスを `nonroot` ユーザとして実行するよう宣言します。コンテナ起動時の `server` プロセスは root ではなく `nonroot` で動きます。
 
-なお、このサンプルが動かす `image-bootstrap/main.go` は、ポート 8080 で待ち受ける小さな HTTP サーバです。1024 番未満の特権ポートを使わないため、非 root ユーザでも問題なく待ち受けできます。非 root 実行を前提にするなら、こうした設計（特権ポートを避ける）も合わせて意識します。
+なお、このサンプルが動かす `apps/image-bootstrap/main.go` は、ポート 8080 で待ち受ける小さな HTTP サーバです。1024 番未満の特権ポートを使わないため、非 root ユーザでも問題なく待ち受けできます。非 root 実行を前提にするなら、こうした設計（特権ポートを避ける）も合わせて意識します。
 
 ### 脆弱性管理（Trivy によるスキャン）
 
 イメージに含まれるパッケージには、後から脆弱性（CVE）が見つかることがあります。そこで、イメージやソースを定期的にスキャンして既知の脆弱性を検知する仕組みが必要です。`image-bootstrap` では Trivy を使っています。
 
-Trivy の設定ファイル `image-bootstrap/trivy.yaml` は次の通りです。
+Trivy の設定ファイル `apps/image-bootstrap/trivy.yaml` は次の通りです。
 
 ```yaml
 scan:
@@ -439,7 +439,7 @@ scan:
 
 ### echo: 複数バリアントを buildx でビルドして push する
 
-`echo/.github/workflows/push-image.yml` は、main ブランチへの push と `v*` タグの付与をトリガに、複数のイメージバリアントをビルドして GitHub Container Registry（ghcr.io）へ push します。
+`apps/echo/.github/workflows/push-image.yml` は、main ブランチへの push と `v*` タグの付与をトリガに、複数のイメージバリアントをビルドして GitHub Container Registry（ghcr.io）へ push します。
 
 ```yaml
 name: Push the container image
@@ -513,7 +513,7 @@ slim が運用用の最小イメージ、debug は distroless の `debug` バリ
 
 ### image-bootstrap: ビルド前に Trivy スキャンとキャッシュを組み込む
 
-`image-bootstrap/.github/workflows/push-image.yml` は、`echo` のワークフローに「脆弱性スキャン」と「ビルドキャッシュ」を加えた、よりセキュアで効率的な構成です。
+`apps/image-bootstrap/.github/workflows/push-image.yml` は、`echo` のワークフローに「脆弱性スキャン」と「ビルドキャッシュ」を加えた、よりセキュアで効率的な構成です。
 
 ```yaml
 name: Push the container image
@@ -611,9 +611,9 @@ stop
 
 - **10.1** 最適なイメージの 4 基準（小さい・速い・安全・再現性）を定義しました。漠然と良し悪しを語るのではなく、評価できる軸を持つことが出発点です。
 - **10.2 / 10.3** ベースイメージの選択（Ubuntu → Alpine → distroless）と、`RUN` のまとめ・不要ファイル削除・`.dockerignore`・レイヤキャッシュという軽量化の基本を、`gihyo-docker-kuberbetes/ch10` の Dockerfile で段階的に確認しました。
-- **10.4** Multi-stage builds により、`echo/Dockerfile`（Go ツールチェーン込み）から `echo/Dockerfile.slim`（distroless に静的バイナリのみ）へと、ビルド環境と実行環境を分離してサイズを大幅に削減しました。
+- **10.4** Multi-stage builds により、`apps/echo/Dockerfile`（Go ツールチェーン込み）から `apps/echo/Dockerfile.slim`（distroless に静的バイナリのみ）へと、ビルド環境と実行環境を分離してサイズを大幅に削減しました。
 - **10.5** BuildKit と `docker buildx`、`$TARGETPLATFORM` / `$TARGETARCH` を使ったマルチプラットフォームビルドとキャッシュ活用を見ました。
-- **10.6** `image-bootstrap/Dockerfile` の distroless nonroot・`USER nonroot`・`--chown` による非 root 実行と、`trivy.yaml` による脆弱性／設定／シークレットスキャンで、最小権限と脆弱性管理を実現しました。
+- **10.6** `apps/image-bootstrap/Dockerfile` の distroless nonroot・`USER nonroot`・`--chown` による非 root 実行と、`trivy.yaml` による脆弱性／設定／シークレットスキャンで、最小権限と脆弱性管理を実現しました。
 - **10.7** GitHub Actions で buildx ビルド → ghcr.io への push を自動化し、Trivy スキャンとレジストリキャッシュを組み込むことで、4 基準を毎回確実に満たす仕組みを構築しました。
 
 最適なイメージ作りは、一度設定して終わりではありません。ベースイメージの更新、新たに見つかる脆弱性への対応、ビルドの改善を、CI を通じて継続的に回し続けることが、「変更を楽に安全にできて役に立つソフトウェア」を運用し続ける鍵になります。

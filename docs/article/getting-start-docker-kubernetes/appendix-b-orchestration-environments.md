@@ -190,7 +190,7 @@ kubectl get nodes
 
 ## B.3 Azure Kubernetes Service(AKS)
 
-AKS は Microsoft Azure が提供するマネージド Kubernetes です。本リポジトリには、本編のタスク管理アプリ（taskapp）を AKS へデプロイするためのマニフェストが `taskapp/k8s/plain/aks/` に含まれています。ここではそれらを引用しながら、ローカル版（`taskapp/k8s/plain/local/`）との差分を見ていきます。
+AKS は Microsoft Azure が提供するマネージド Kubernetes です。本リポジトリには、本編のタスク管理アプリ（taskapp）を AKS へデプロイするためのマニフェストが `apps/taskapp/k8s/plain/aks/` に含まれています。ここではそれらを引用しながら、ローカル版（`apps/taskapp/k8s/plain/local/`）との差分を見ていきます。
 
 ### ローカル版との差分
 
@@ -198,7 +198,7 @@ AKS 版とローカル版は、ほとんどのマニフェストが共通です�
 
 差分が現れるのは `web.yaml` の Ingress 定義です。外部からの入口（Ingress）は環境のロードバランサに依存するため、ここだけ環境ごとに書き換える必要があります。
 
-ローカル版（`taskapp/k8s/plain/local/web.yaml`）の Ingress は、NGINX Ingress Controller を前提としています。
+ローカル版（`apps/taskapp/k8s/plain/local/web.yaml`）の Ingress は、NGINX Ingress Controller を前提としています。
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -222,7 +222,7 @@ spec:
                   number: 80
 ```
 
-一方、AKS 版（`taskapp/k8s/plain/aks/web.yaml`）の Ingress は、Azure の Application Gateway Ingress Controller を前提としています。
+一方、AKS 版（`apps/taskapp/k8s/plain/aks/web.yaml`）の Ingress は、Azure の Application Gateway Ingress Controller を前提としています。
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -272,7 +272,7 @@ az aks create \
 az aks get-credentials --resource-group taskapp-rg --name taskapp-cluster
 
 # AKS 用マニフェストを適用する（例）
-kubectl apply -f taskapp/k8s/plain/aks/
+kubectl apply -f apps/taskapp/k8s/plain/aks/
 ```
 
 Application Gateway Ingress Controller を利用する場合は、クラスタ作成時にアドオンとして有効化するか、後から有効化する必要があります。その有効化が済んでいることが、上記 AKS 版 `web.yaml` の Ingress が機能する前提となります。

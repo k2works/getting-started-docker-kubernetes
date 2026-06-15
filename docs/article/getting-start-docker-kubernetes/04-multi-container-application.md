@@ -4,7 +4,7 @@
 
 前章まででは、単一のコンテナを作り、動かし、イメージとして配布する方法を学びました。しかし、実際の Web アプリケーションは、データベース、API サーバ、Web サーバ、リバースプロキシなど、役割の異なる複数のプロセスが連携して初めて動作します。これらをすべて 1 つのコンテナに詰め込んでしまうと、「1 コンテナ 1 プロセス」というコンテナの原則から外れ、スケールやデプロイ、障害の切り分けが難しくなります。
 
-この章では、シンプルなタスク管理アプリケーション（taskapp）を題材に、役割ごとに分割した複数のコンテナを Docker Compose（`compose.yaml`）で 1 つのシステムとして組み上げる方法を学びます。題材のコードはすべて `taskapp` リポジトリ（本記事では `tmp/taskapp` 配下）の実ファイルを引用しています。
+この章では、シンプルなタスク管理アプリケーション（taskapp）を題材に、役割ごとに分割した複数のコンテナを Docker Compose（`compose.yaml`）で 1 つのシステムとして組み上げる方法を学びます。題材のコードはすべて `taskapp` リポジトリ（本記事では `apps/taskapp` 配下）の実ファイルを引用しています。
 
 この章で扱う内容は次の通りです。
 
@@ -67,7 +67,7 @@ end note
 
 ### 各サービスの役割
 
-`taskapp/compose.yaml` で定義されている 6 つのサービスの役割を整理します。
+`apps/taskapp/compose.yaml` で定義されている 6 つのサービスの役割を整理します。
 
 | サービス | 役割 | 公開ポート（ホスト→コンテナ） |
 | :--- | :--- | :--- |
@@ -88,7 +88,7 @@ end note
 
 ### Dockerfile
 
-`taskapp/containers/mysql/Dockerfile` は、公式の `mysql:8.0.33` をベースに、設定ファイルをコピーするだけのシンプルな構成です。
+`apps/taskapp/containers/mysql/Dockerfile` は、公式の `mysql:8.0.33` をベースに、設定ファイルをコピーするだけのシンプルな構成です。
 
 ```dockerfile
 FROM mysql:8.0.33
@@ -100,7 +100,7 @@ MySQL 公式イメージは、`/etc/mysql/conf.d` 配下に置かれた `.cnf` �
 
 ### スロークエリログの設定
 
-`taskapp/containers/mysql/etc/mysql/conf.d/slowlog.cnf` で、実行に時間のかかったクエリを記録するスロークエリログを有効化しています。
+`apps/taskapp/containers/mysql/etc/mysql/conf.d/slowlog.cnf` で、実行に時間のかかったクエリを記録するスロークエリログを有効化しています。
 
 ```ini
 [mysqld]
@@ -121,7 +121,7 @@ log_queries_not_using_indexes = on
 
 ### 環境変数とデータの永続化（compose.yaml の抜粋）
 
-`taskapp/compose.yaml` での `mysql` サービスの定義は次の通りです。
+`apps/taskapp/compose.yaml` での `mysql` サービスの定義は次の通りです。
 
 ```yaml
   mysql:
@@ -157,7 +157,7 @@ MySQL コンテナが起動しただけでは、まだ空のデータベース�
 
 ### Dockerfile
 
-`taskapp/containers/migrator/Dockerfile` は、Go のイメージをベースに、MySQL クライアントとマイグレーションツール `golang-migrate` をインストールしています。
+`apps/taskapp/containers/migrator/Dockerfile` は、Go のイメージをベースに、MySQL クライアントとマイグレーションツール `golang-migrate` をインストールしています。
 
 ```dockerfile
 FROM golang:1.21.6
@@ -177,7 +177,7 @@ COPY . .
 
 ### マイグレーション SQL（history/）
 
-マイグレーションは `taskapp/containers/migrator/history/` に、`<連番>_<名前>.up.sql` / `.down.sql` のペアで配置されています。`up` は適用（前進）、`down` は取り消し（後退）を表します。
+マイグレーションは `apps/taskapp/containers/migrator/history/` に、`<連番>_<名前>.up.sql` / `.down.sql` のペアで配置されています。`up` は適用（前進）、`down` は取り消し（後退）を表します。
 
 まず `1001_init.up.sql` で、アプリケーションの中心となる `task` テーブルを作成します。
 
@@ -219,7 +219,7 @@ INSERT INTO task (id, title, content, status, created, updated)
 VALUES ('01H4QEZ39FBP67SS9V042ZJ5H1', 'Dockerのインストール', 'Docker Desktopでのローカル開発環境準備', 'DONE', NOW(), NOW()),
        ('01H4QEZ39FZVW6Y6HVQDHQ192K', 'asdfのインストール', 'asdfでのツールの管理', 'DONE', NOW(), NOW()),
        ('01H4QEZ39F0MCJERZ7BFHSG92E', 'Kubernetesの検証', 'Kubernetesをどのように導入するか', 'PROGRESS', NOW(), NOW()),
-       -- ... 以下、テストデータが続く（taskapp/containers/migrator/history/1003_test_data.up.sql 参照）
+       -- ... 以下、テストデータが続く（apps/taskapp/containers/migrator/history/1003_test_data.up.sql 参照）
        ('01H4QEZ39FKNA78DZQ6CGSCJJM', 'OrbStackの検証', 'OrbStackでの開発環境を検証', 'BACKLOG', NOW(), NOW());
 ```
 
@@ -227,7 +227,7 @@ VALUES ('01H4QEZ39FBP67SS9V042ZJ5H1', 'Dockerのインストール', 'Docker Des
 
 ### migrate.sh
 
-マイグレーションの実行手順は `taskapp/containers/migrator/migrate.sh` にまとめられています。
+マイグレーションの実行手順は `apps/taskapp/containers/migrator/migrate.sh` にまとめられています。
 
 ```bash
 #!/usr/bin/env bash
@@ -302,9 +302,9 @@ migrate -path ./history -database mysql://$db_username:$db_password@tcp\($db_hos
 
 ### Go アプリケーションの構成
 
-エントリポイントは `taskapp/cmd/` 配下に、`api` / `web` / `tools` の 3 つが用意されています。いずれも共通の CLI フレームワーク（`pkg/cli`）を使い、サブコマンドを登録する形になっています。
+エントリポイントは `apps/taskapp/cmd/` 配下に、`api` / `web` / `tools` の 3 つが用意されています。いずれも共通の CLI フレームワーク（`pkg/cli`）を使い、サブコマンドを登録する形になっています。
 
-API サーバ（`taskapp/cmd/api/main.go`）は、`server` と `config` のサブコマンドを持ちます。
+API サーバ（`apps/taskapp/cmd/api/main.go`）は、`server` と `config` のサブコマンドを持ちます。
 
 ```go
 package main
@@ -329,7 +329,7 @@ func main() {
 }
 ```
 
-Web サーバ（`taskapp/cmd/web/main.go`）は `server` サブコマンドのみを持つ、よりシンプルな構成です。
+Web サーバ（`apps/taskapp/cmd/web/main.go`）は `server` サブコマンドのみを持つ、よりシンプルな構成です。
 
 ```go
 package main
@@ -352,7 +352,7 @@ func main() {
 }
 ```
 
-なお、`taskapp/cmd/tools/main.go` は MySQL 関連のユーティリティをまとめた補助ツールで、開発時のメンテナンス作業に使います。
+なお、`apps/taskapp/cmd/tools/main.go` は MySQL 関連のユーティリティをまとめた補助ツールで、開発時のメンテナンス作業に使います。
 
 ```go
 package main
@@ -377,7 +377,7 @@ func main() {
 
 ### API サーバの Dockerfile
 
-`taskapp/containers/api/Dockerfile` は、Go のソースをコンテナ内でビルドして実行する構成です。
+`apps/taskapp/containers/api/Dockerfile` は、Go のソースをコンテナ内でビルドして実行する構成です。
 
 ```dockerfile
 FROM golang:1.21.6
@@ -401,7 +401,7 @@ ENTRYPOINT ["./bin/api"]
 
 ### Web サーバの Dockerfile
 
-`taskapp/containers/web/Dockerfile` は API とほぼ同じですが、画面用の静的ファイルである `assets` を追加でコピーする点が異なります。
+`apps/taskapp/containers/web/Dockerfile` は API とほぼ同じですが、画面用の静的ファイルである `assets` を追加でコピーする点が異なります。
 
 ```dockerfile
 FROM golang:1.21.6
@@ -466,7 +466,7 @@ taskapp には、`nginx-api` と `nginx-web` という 2 つのリバースプ�
 
 ### Dockerfile
 
-`taskapp/containers/nginx-api/Dockerfile` と `taskapp/containers/nginx-web/Dockerfile` は同一で、公式 nginx イメージに設定ファイルをコピーし、不要なデフォルト設定を削除するだけです。
+`apps/taskapp/containers/nginx-api/Dockerfile` と `apps/taskapp/containers/nginx-web/Dockerfile` は同一で、公式 nginx イメージに設定ファイルをコピーし、不要なデフォルト設定を削除するだけです。
 
 ```dockerfile
 FROM nginx:1.25.1
@@ -481,7 +481,7 @@ nginx 公式イメージには、起動時に `/etc/nginx/templates/*.template` 
 
 #### 10-log.conf.template（ログ定義）
 
-`taskapp/containers/nginx-api/etc/nginx/templates/10-log.conf.template`（nginx-web 側も同一）では、構造化された JSON 形式のアクセスログを定義しています。
+`apps/taskapp/containers/nginx-api/etc/nginx/templates/10-log.conf.template`（nginx-web 側も同一）では、構造化された JSON 形式のアクセスログを定義しています。
 
 ```nginx
 log_format json escape=json '{'
@@ -502,7 +502,7 @@ log_format json escape=json '{'
 
 #### 20-upstream.conf.template（アップストリーム定義）
 
-`taskapp/containers/nginx-api/etc/nginx/templates/20-upstream.conf.template`（nginx-web 側も同一）では、振り分け先のバックエンドを環境変数で定義しています。
+`apps/taskapp/containers/nginx-api/etc/nginx/templates/20-upstream.conf.template`（nginx-web 側も同一）では、振り分け先のバックエンドを環境変数で定義しています。
 
 ```nginx
 upstream backend {
@@ -514,7 +514,7 @@ upstream backend {
 
 #### 30-vhost.conf.template（バーチャルホスト定義）
 
-API 用の `taskapp/containers/nginx-api/etc/nginx/templates/30-vhost.conf.template` は、すべてのリクエストを `backend`（= api）へ転送します。
+API 用の `apps/taskapp/containers/nginx-api/etc/nginx/templates/30-vhost.conf.template` は、すべてのリクエストを `backend`（= api）へ転送します。
 
 ```nginx
 server {
@@ -531,7 +531,7 @@ server {
 }
 ```
 
-一方、Web 用の `taskapp/containers/nginx-web/etc/nginx/templates/30-vhost.conf.template` には、静的ファイルを nginx が直接配信する `location /assets/` が追加されています。
+一方、Web 用の `apps/taskapp/containers/nginx-web/etc/nginx/templates/30-vhost.conf.template` には、静的ファイルを nginx が直接配信する `location /assets/` が追加されています。
 
 ```nginx
 server {
@@ -560,7 +560,7 @@ server {
 
 ## 4.6 複数コンテナ構成でタスクアプリを実行する
 
-ここまでで 6 つのコンテナの中身が揃いました。最後に、それらを 1 つのシステムとして束ねる `taskapp/compose.yaml` の全体像を確認し、`docker compose up` で起動する流れを追います。
+ここまでで 6 つのコンテナの中身が揃いました。最後に、それらを 1 つのシステムとして束ねる `apps/taskapp/compose.yaml` の全体像を確認し、`docker compose up` で起動する流れを追います。
 
 ### compose.yaml の全体
 
@@ -787,7 +787,7 @@ $ docker compose down -v
 
 ### Tiltfile
 
-`taskapp/Tiltfile` は非常に簡潔で、既存の `compose.yaml` をそのまま取り込む構成になっています。
+`apps/taskapp/Tiltfile` は非常に簡潔で、既存の `compose.yaml` をそのまま取り込む構成になっています。
 
 ```python
 config.define_string_list("to-run", args=True)

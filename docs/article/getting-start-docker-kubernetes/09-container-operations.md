@@ -9,7 +9,7 @@
 - **9.1 ロギングの運用** — コンテナのログをどこに出し、どう集約し、どう検索可能にするか
 - **9.2 可用性の高い Kubernetes の運用** — オートスケールと Pod 配置制御によって、負荷変動と障害に強い構成をどう作るか
 
-なお、本章で引用するマニフェストや設定ファイルは、すべてリポジトリ内に実在するものです。ロギングの題材は `gihyo-docker-kuberbetes/ch08/ch08_1_3`（Docker Compose 構成）と `ch08/ch08_1_4`（Kubernetes 構成）、可用性の題材は `ch08/ch08_3_2`、アプリ側のログ出力例は `taskapp/containers/` 配下を参照します。実コードに存在しない一般的な観点については「例」「一般論」として明記します。
+なお、本章で引用するマニフェストや設定ファイルは、すべてリポジトリ内に実在するものです。ロギングの題材は `gihyo-docker-kuberbetes/ch08/ch08_1_3`（Docker Compose 構成）と `ch08/ch08_1_4`（Kubernetes 構成）、可用性の題材は `ch08/ch08_3_2`、アプリ側のログ出力例は `apps/taskapp/containers/` 配下を参照します。実コードに存在しない一般的な観点については「例」「一般論」として明記します。
 
 ### 目次
 
@@ -29,7 +29,7 @@
 
 そこでコンテナの世界では、アプリケーションは「ログを標準出力・標準エラーに垂れ流すだけ」にし、それをどこに保存・転送するかはコンテナの外側（Docker エンジンや Kubernetes）の責務とする、という役割分担を取ります。これは [The Twelve-Factor App](https://12factor.net/ja/logs) が説く「ログをイベントストリームとして扱う」という考え方そのものです。アプリケーションはログの行き先を知らなくてよく、関心の分離が実現されます。
 
-この原則は、アプリケーション側の設定にも現れます。たとえば `taskapp/containers/nginx-web/etc/nginx/templates/10-log.conf.template` では、Nginx のアクセスログを構造化された JSON 形式で出力するよう定義しています。
+この原則は、アプリケーション側の設定にも現れます。たとえば `apps/taskapp/containers/nginx-web/etc/nginx/templates/10-log.conf.template` では、Nginx のアクセスログを構造化された JSON 形式で出力するよう定義しています。
 
 ```conf
 log_format json escape=json '{'
@@ -54,7 +54,7 @@ log_format json escape=json '{'
 
 JSON 形式でログを出力しておくと、後述する Elasticsearch のようなログ基盤がフィールド単位でインデックスを作れるため、「ステータスコードが 500 のリクエストだけ」「レスポンスタイムが 1 秒を超えたものだけ」といった検索・集計が容易になります。プレーンテキストのログと比べ、構造化ログは検索性・分析性で大きく勝ります。
 
-データベースのようなミドルウェアでも、診断に必要なログをあらかじめ出力させておくことが重要です。`taskapp/containers/mysql/etc/mysql/conf.d/slowlog.cnf` では、実行に時間のかかったクエリを記録するスロークエリログを有効化しています。
+データベースのようなミドルウェアでも、診断に必要なログをあらかじめ出力させておくことが重要です。`apps/taskapp/containers/mysql/etc/mysql/conf.d/slowlog.cnf` では、実行に時間のかかったクエリを記録するスロークエリログを有効化しています。
 
 ```conf
 [mysqld]

@@ -77,7 +77,7 @@ spec:
 
 この例（`ch07_4_1/echo-version-strategy.yaml` からの引用）では `replicas: 4` に対して `maxUnavailable: 3`、`maxSurge: 4` という、かなり積極的な設定になっています。最大で 4 つの新 Pod を追加で立ち上げつつ、最大 3 つの旧 Pod が同時に利用不可になることを許すため、一気に入れ替えが進みます。学習目的で更新の挙動を観察しやすくした設定であり、本番では更新速度と可用性のバランスを見て値を調整します。
 
-なお、`strategy` を省略した場合、Deployment はデフォルトで `RollingUpdate`、かつ `maxSurge: 25%`、`maxUnavailable: 25%` として動作します。`taskapp` の `api/deployment.yaml` や `web/deployment.yaml`（`taskapp/k8s/kustomize/base` 配下）では `strategy` を明示していないため、これらはデフォルトのローリングアップデートで更新されます。
+なお、`strategy` を省略した場合、Deployment はデフォルトで `RollingUpdate`、かつ `maxSurge: 25%`、`maxUnavailable: 25%` として動作します。`taskapp` の `api/deployment.yaml` や `web/deployment.yaml`（`apps/taskapp/k8s/kustomize/base` 配下）では `strategy` を明示していないため、これらはデフォルトのローリングアップデートで更新されます。
 
 ### 7.1.2 ヘルスチェックと安全な入れ替え
 
@@ -247,7 +247,7 @@ Kubernetes はこのために 2 つのリソースを用意しています。
 
 バッチジョブの題材として、`container-kit` リポジトリの `containers/time-limit-job` を見てみます。これは「指定した秒数だけ動いて終了する」シンプルなジョブ用コンテナです。
 
-まず実行スクリプト `container-kit/containers/time-limit-job/task.sh` は次のようになっています。
+まず実行スクリプト `apps/container-kit/containers/time-limit-job/task.sh` は次のようになっています。
 
 ```bash
 #!/usr/bin/env bash
@@ -269,7 +269,7 @@ echo "Finished this task."
 
 このスクリプト（`time-limit-job/task.sh` からの引用）は、環境変数 `EXECUTION_SECONDS` で指定された秒数のあいだ "Running task..." を出力し続け、時間が来たら "Finished this task." を出力して終了します。環境変数が未指定なら `exit 1` でエラー終了します。「一定時間で必ず終わる処理」という、まさに Job 向きの振る舞いです。
 
-これをコンテナ化する `container-kit/containers/time-limit-job/Dockerfile` は次のとおりです。
+これをコンテナ化する `apps/container-kit/containers/time-limit-job/Dockerfile` は次のとおりです。
 
 ```dockerfile
 FROM ubuntu:23.10
@@ -289,7 +289,7 @@ CMD ["sh", "-c", "task.sh"]
 
 Job は、Pod を起動してバッチ処理を実行し、処理が正常終了（コンテナの終了コードが 0）したら完了とみなすリソースです。
 
-`taskapp` には、データベースのマイグレーションを実行する Job の実例があります。`taskapp/k8s/kustomize/base/migrator/job.yaml` です。
+`taskapp` には、データベースのマイグレーションを実行する Job の実例があります。`apps/taskapp/k8s/kustomize/base/migrator/job.yaml` です。
 
 ```yaml
 apiVersion: batch/v1
@@ -332,7 +332,7 @@ spec:
       restartPolicy: Never
 ```
 
-この実例（`taskapp/k8s/kustomize/base/migrator/job.yaml` からの引用）のポイントは次のとおりです。
+この実例（`apps/taskapp/k8s/kustomize/base/migrator/job.yaml` からの引用）のポイントは次のとおりです。
 
 - `kind: Job`、`apiVersion: batch/v1` で Job を宣言しています。
 - `spec.template.spec` に、実行したいコンテナを Pod テンプレートとして記述します。ここでは `migrate.sh` に `up`（マイグレーション適用）を渡して実行しています。

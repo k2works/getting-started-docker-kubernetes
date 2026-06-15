@@ -17,7 +17,7 @@
 
 「アプリケーションを書く」→「イメージにする」→「コンテナとして動かす」→「複数コンテナを組み合わせる」という、コンテナ開発の一連のサイクルを一度通して体験することがこの章のゴールです。
 
-なお、echo は学習用のため、Go の実行ファイルを事前にビルドせず、コンテナ内で `go run` する構成になっています。`echo/README-ja.md` にも次のように明記されています。
+なお、echo は学習用のため、Go の実行ファイルを事前にビルドせず、コンテナ内で `go run` する構成になっています。`apps/echo/README-ja.md` にも次のように明記されています。
 
 > 通常、Go言語のアプリケーションはビルドしてできた実行ファイルをコンテナイメージに含めます。しかし、ここではコンテナイメージのビルド手順をシンプルに読者に伝えるために、実行ファイルを作らずに実行しています。
 
@@ -87,7 +87,7 @@ stop
 
 ### アプリケーション本体（main.go）
 
-題材となる echo アプリケーションの本体は、`echo/main.go` に書かれた Go のプログラムです。`/` に来たリクエストすべてに対して `Hello Container!!` を返す、ごく単純な HTTP サーバーです。
+題材となる echo アプリケーションの本体は、`apps/echo/main.go` に書かれた Go のプログラムです。`/` に来たリクエストすべてに対して `Hello Container!!` を返す、ごく単純な HTTP サーバーです。
 
 ```go
 package main
@@ -143,7 +143,7 @@ func main() {
 
 ### Dockerfile を書く
 
-アプリケーションをイメージにまとめる手順を記述するのが Dockerfile です。echo の Dockerfile（`echo/Dockerfile`）は次のとおりです。
+アプリケーションをイメージにまとめる手順を記述するのが Dockerfile です。echo の Dockerfile（`apps/echo/Dockerfile`）は次のとおりです。
 
 ```dockerfile
 FROM golang:1.21.6
@@ -193,7 +193,7 @@ COPY main.go .
 
 `COPY` は、ホスト側のファイルをイメージの中にコピーします。ここではビルドコンテキスト（Dockerfile のあるディレクトリ）にある `main.go` を、作業ディレクトリ（`.`、つまり `WORKDIR` で指定した場所）へコピーしています。
 
-なお、`echo/.dockerignore` によって、`.git/` や `*.md`、`.idea/` などはビルドコンテキストから除外されます。不要なファイルを送らないことでビルドが速くなり、イメージに余計なものが含まれるのを防げます。
+なお、`apps/echo/.dockerignore` によって、`.git/` や `*.md`、`.idea/` などはビルドコンテキストから除外されます。不要なファイルを送らないことでビルドが速くなり、イメージに余計なものが含まれるのを防げます。
 
 ```text
 .git/
@@ -224,7 +224,7 @@ CMD ["go", "run", "main.go"]
 
 ### docker build でイメージを作る
 
-Dockerfile が用意できたら、`docker build` でイメージをビルドします。`echo/` ディレクトリで次のコマンドを実行します。
+Dockerfile が用意できたら、`docker build` でイメージをビルドします。`apps/echo/` ディレクトリで次のコマンドを実行します。
 
 ```bash
 docker build -t echo:latest .
@@ -626,7 +626,7 @@ nginx --> echo : proxy_pass http://echo
 
 ### compose.yaml の内容
 
-構成を定義しているのが `echo/compose.yaml` です。
+構成を定義しているのが `apps/echo/compose.yaml` です。
 
 ```yaml
 version: "3.9"
@@ -656,7 +656,7 @@ services:
 
 ### nginx の構成
 
-nginx 側のイメージは `echo/nginx/Dockerfile` でビルドされます。
+nginx 側のイメージは `apps/echo/nginx/Dockerfile` でビルドされます。
 
 ```dockerfile
 FROM nginx:1.25.1
@@ -666,7 +666,7 @@ COPY ./etc/nginx/conf.d/* /etc/nginx/conf.d/
 
 公式 nginx イメージをベースに、設定ファイルを `/etc/nginx/conf.d/` へコピーするだけのシンプルな構成です。コピーされる設定ファイルは 2 つあります。
 
-まず `echo/nginx/etc/nginx/conf.d/upstream.conf` で、プロキシ先（echo）を定義します。
+まず `apps/echo/nginx/etc/nginx/conf.d/upstream.conf` で、プロキシ先（echo）を定義します。
 
 ```text
 upstream echo {
@@ -676,7 +676,7 @@ upstream echo {
 
 ここで指定している `echo:8080` の `echo` は、`compose.yaml` の `echo` サービス名です。Compose で起動したコンテナ同士は、サービス名で名前解決して通信できます。`max_fails` と `fail_timeout` は、接続失敗時の挙動（3 回失敗したら 10 秒間そのサーバーを切り離す）を指定しています。
 
-次に `echo/nginx/etc/nginx/conf.d/echo.conf` で、リクエストを `upstream echo` へ転送する設定を記述します。
+次に `apps/echo/nginx/etc/nginx/conf.d/echo.conf` で、リクエストを `upstream echo` へ転送する設定を記述します。
 
 ```text
 server {
@@ -699,7 +699,7 @@ server {
 
 ### docker compose up で起動する
 
-`echo/` ディレクトリで次のコマンドを実行すると、echo と nginx の両方が起動します。
+`apps/echo/` ディレクトリで次のコマンドを実行すると、echo と nginx の両方が起動します。
 
 ```bash
 docker compose up

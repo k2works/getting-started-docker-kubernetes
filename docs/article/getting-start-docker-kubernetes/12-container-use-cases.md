@@ -34,7 +34,7 @@
 
 まず、開発・運用で頻繁に使うツール一式をあらかじめ入れたコンテナの例を見てみましょう。`gihyodocker/container-kit` リポジトリには、デバッグ用のコンテナイメージ `ghcr.io/gihyodocker/debug` が含まれています。
 
-出典: `container-kit/containers/debug/Dockerfile`
+出典: `apps/container-kit/containers/debug/Dockerfile`
 
 ```dockerfile
 FROM ubuntu:23.10
@@ -59,7 +59,7 @@ RUN apt install -y curl wget git zip telnet vim default-mysql-client iputils-pin
 
 このイメージが効果を発揮するのは、Kubernetes クラスタ内のネットワークやサービスを調査したいときです。本番に近い環境では、調査用のツールをアプリケーションコンテナに入れたくありません（イメージが肥大化し、攻撃対象も増えるため）。そこで、デバッグ用コンテナを一時的にクラスタ内へ起動し、内部から疎通や名前解決を確認します。
 
-`README-ja.md`（出典: `container-kit/README-ja.md`）でも、このリポジトリが「Docker/Kubernetes 実践コンテナ開発入門において必要ないくつかのコンテナイメージを含んでいる」と説明されており、`debug` イメージはその代表例です。
+`README-ja.md`（出典: `apps/container-kit/README-ja.md`）でも、このリポジトリが「Docker/Kubernetes 実践コンテナ開発入門において必要ないくつかのコンテナイメージを含んでいる」と説明されており、`debug` イメージはその代表例です。
 
 たとえば、クラスタ内で名前解決を確認したい場合は、次のように一時的なコンテナを起動します（コマンドは例です）。
 
@@ -161,7 +161,7 @@ docker run --rm -v "$(pwd)":/work -w /work <イメージ名> <コマンド> [引
 
 `container-kit` には、CLI ツールというより「設定込みのツールコンテナ」と呼べる例があります。`simple-nginx-proxy` は、リバースプロキシとして使う Nginx の設定をテンプレート化したコンテナです。
 
-出典: `container-kit/containers/simple-nginx-proxy/Dockerfile`
+出典: `apps/container-kit/containers/simple-nginx-proxy/Dockerfile`
 
 ```dockerfile
 FROM nginx:1.25.1
@@ -174,7 +174,7 @@ RUN rm /etc/nginx/conf.d/default.conf
 
 注目したいのは、設定ファイルが直接ではなく「テンプレート」として配置されている点です。公式 Nginx イメージは、`/etc/nginx/templates` 配下に置かれた `*.template` ファイル中の環境変数を、起動時に実際の値へ展開して `/etc/nginx/conf.d` に出力する仕組みを持っています。
 
-出典: `container-kit/containers/simple-nginx-proxy/etc/nginx/templates/upstream.conf.template`
+出典: `apps/container-kit/containers/simple-nginx-proxy/etc/nginx/templates/upstream.conf.template`
 
 ```bash
 upstream backend {
@@ -182,7 +182,7 @@ upstream backend {
 }
 ```
 
-出典: `container-kit/containers/simple-nginx-proxy/etc/nginx/templates/vhost.conf.template`
+出典: `apps/container-kit/containers/simple-nginx-proxy/etc/nginx/templates/vhost.conf.template`
 
 ```bash
 server {
@@ -218,7 +218,7 @@ docker run --rm \
 
 もう 1 つ、`time-limit-job` という例を見てみましょう。これは「指定した秒数だけ動いて終了する」だけのコンテナで、バッチ処理やジョブをコンテナ化する際の最小サンプルになっています。
 
-出典: `container-kit/containers/time-limit-job/Dockerfile`
+出典: `apps/container-kit/containers/time-limit-job/Dockerfile`
 
 ```dockerfile
 FROM ubuntu:23.10
@@ -234,7 +234,7 @@ CMD ["sh", "-c", "task.sh"]
 
 実行される `task.sh` は次のとおりです。
 
-出典: `container-kit/containers/time-limit-job/task.sh`
+出典: `apps/container-kit/containers/time-limit-job/task.sh`
 
 ```bash
 #!/usr/bin/env bash

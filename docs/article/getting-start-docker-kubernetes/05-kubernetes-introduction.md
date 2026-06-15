@@ -6,7 +6,7 @@
 
 この章では、コンテナオーケストレーションのデファクトスタンダードである **Kubernetes** を学びます。Kubernetes は Google が社内で培ったコンテナ運用のノウハウをもとに開発され、現在は CNCF（Cloud Native Computing Foundation）が中立的に運営する OSS です。「k8s（ケーエイツ）」と省略表記されることもあります。
 
-本章のゴールは、Kubernetes を構成する基本的なリソース（Pod、ReplicaSet、Deployment、Service、Ingress）の役割と関係を理解し、実際に YAML マニフェストを書いて `kubectl` で適用できるようになることです。説明には、書籍『Docker/Kubernetes 実践コンテナ開発入門（第 2 版）』のサンプルリポジトリ `gihyo-docker-kuberbetes`（ディレクトリ `ch05/`）と、応用例として `echo` アプリの Kustomize 定義（`echo/k8s/kustomize/`）を引用します。
+本章のゴールは、Kubernetes を構成する基本的なリソース（Pod、ReplicaSet、Deployment、Service、Ingress）の役割と関係を理解し、実際に YAML マニフェストを書いて `kubectl` で適用できるようになることです。説明には、書籍『Docker/Kubernetes 実践コンテナ開発入門（第 2 版）』のサンプルリポジトリ `gihyo-docker-kuberbetes`（ディレクトリ `ch05/`）と、応用例として `echo` アプリの Kustomize 定義（`apps/echo/k8s/kustomize/`）を引用します。
 
 学ぶ順序は次のとおりです。
 
@@ -468,7 +468,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/ngin
 
 このように、外部で公開されているマニフェストを `kubectl apply` することで、ingress-nginx コントローラー本体（Deployment や Service など一式）がクラスタにインストールされます。なお、ここで参照しているバージョン（`nginx-0.16.2`）は書籍刊行時点のものです。現在のローカル環境では、より新しいバージョンの ingress-nginx を導入してください。Docker Desktop など環境によっては、導入手順が異なる場合があります。
 
-複数の Ingress コントローラーを併用できるよう、現在の Kubernetes では **IngressClass** という仕組みでコントローラーを指定します。後述の応用例（`echo/k8s/kustomize/ingress.yaml`）では、`spec.ingressClassName: nginx` と書くことで「この Ingress は nginx コントローラーに処理させる」と明示しています。
+複数の Ingress コントローラーを併用できるよう、現在の Kubernetes では **IngressClass** という仕組みでコントローラーを指定します。後述の応用例（`apps/echo/k8s/kustomize/ingress.yaml`）では、`spec.ingressClassName: nginx` と書くことで「この Ingress は nginx コントローラーに処理させる」と明示しています。
 
 ### 5.10.2 Ingress を通じたアクセス
 
@@ -509,7 +509,7 @@ curl http://localhost -H "Host: ch05.gihyo.local"
 
 ### 新しい API バージョンと Kustomize での記述
 
-上記の `simple-ingress.yaml` は `apiVersion: extensions/v1beta1` を使っており、これは書籍刊行当時の古い API です。現在の Kubernetes ではこの API は削除されており、Ingress は `networking.k8s.io/v1` で記述します。フィールド構造も少し変わっているため、新しい書き方を `echo` アプリの応用例で確認しておきましょう（出典：`echo/k8s/kustomize/ingress.yaml`）。
+上記の `simple-ingress.yaml` は `apiVersion: extensions/v1beta1` を使っており、これは書籍刊行当時の古い API です。現在の Kubernetes ではこの API は削除されており、Ingress は `networking.k8s.io/v1` で記述します。フィールド構造も少し変わっているため、新しい書き方を `echo` アプリの応用例で確認しておきましょう（出典：`apps/echo/k8s/kustomize/ingress.yaml`）。
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -539,11 +539,11 @@ spec:
 - `paths` の各エントリに `pathType: Prefix`（パスの前方一致）が必須になりました。
 - `backend` の指定が `serviceName` / `servicePort` から、`service.name` / `service.port.number` という入れ子の構造に変わりました。
 
-この `echo` の応用例では、Deployment・Service・Ingress を `kustomization.yaml` でまとめて管理しています（出典：`echo/k8s/kustomize/`）。`kubectl apply -k` で Kustomize ディレクトリを指定すると、3 つのマニフェストを一括適用できます。
+この `echo` の応用例では、Deployment・Service・Ingress を `kustomization.yaml` でまとめて管理しています（出典：`apps/echo/k8s/kustomize/`）。`kubectl apply -k` で Kustomize ディレクトリを指定すると、3 つのマニフェストを一括適用できます。
 
 ```bash
 # Kustomize ディレクトリを一括適用する
-kubectl apply -k echo/k8s/kustomize/
+kubectl apply -k apps/echo/k8s/kustomize/
 ```
 
 この応用例では、ラベルに `app.kubernetes.io/name: echo` という Kubernetes 推奨の命名規約（well-known labels）を採用し、`kustomization.yaml` の `labels` 設定で全リソースへ一括付与しています。本章で学んだ「ラベルとセレクタによる紐づけ」の考え方は、API バージョンが新しくなっても変わらない普遍的な原則です。

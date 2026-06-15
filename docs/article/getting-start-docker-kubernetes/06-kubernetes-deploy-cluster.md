@@ -95,7 +95,7 @@ secret ..> migrator
 
 ## 6.2 タスクアプリを Kubernetes にデプロイする
 
-ここからは実際にマニフェストを読みながら、各リソースをクラスタへ適用していきます。出典は `taskapp/k8s/plain/local/` 配下のファイルです。
+ここからは実際にマニフェストを読みながら、各リソースをクラスタへ適用していきます。出典は `apps/taskapp/k8s/plain/local/` 配下のファイルです。
 
 ### デプロイの順序
 
@@ -121,7 +121,7 @@ stop
 
 ### MySQL のデプロイと永続化
 
-MySQL は `mysql.yaml`（`taskapp/k8s/plain/local/mysql.yaml`）に定義されています。データを失わないよう、StatefulSet と PersistentVolumeClaim（PVC）を組み合わせている点が最大の特徴です。
+MySQL は `mysql.yaml`（`apps/taskapp/k8s/plain/local/mysql.yaml`）に定義されています。データを失わないよう、StatefulSet と PersistentVolumeClaim（PVC）を組み合わせている点が最大の特徴です。
 
 ```yaml
 apiVersion: apps/v1
@@ -225,7 +225,7 @@ kubectl get pvc -n taskapp
 
 ### マイグレーション Job の実行と完了待ち
 
-データベースが起動したら、スキーマを構築するマイグレーションを実行します。`migrator.yaml`（`taskapp/k8s/plain/local/migrator.yaml`）は、これを Job として定義しています。
+データベースが起動したら、スキーマを構築するマイグレーションを実行します。`migrator.yaml`（`apps/taskapp/k8s/plain/local/migrator.yaml`）は、これを Job として定義しています。
 
 ```yaml
 apiVersion: batch/v1
@@ -301,7 +301,7 @@ kubectl logs job/migrator-up -n taskapp
 
 ### api のデプロイ
 
-スキーマが用意できたら、バックエンド API をデプロイします。`api.yaml`（`taskapp/k8s/plain/local/api.yaml`）の Deployment 部分は次のとおりです。
+スキーマが用意できたら、バックエンド API をデプロイします。`api.yaml`（`apps/taskapp/k8s/plain/local/api.yaml`）の Deployment 部分は次のとおりです。
 
 ```yaml
 apiVersion: apps/v1
@@ -381,7 +381,7 @@ spec:
 
 ### web のデプロイ
 
-最後にフロントエンドの web をデプロイします。`web.yaml`（`taskapp/k8s/plain/local/web.yaml`）の Deployment 部分は次のとおりです。
+最後にフロントエンドの web をデプロイします。`web.yaml`（`apps/taskapp/k8s/plain/local/web.yaml`）の Deployment 部分は次のとおりです。
 
 ```yaml
 apiVersion: apps/v1
@@ -503,7 +503,7 @@ Ingress は「どのホスト名・パスへのリクエストを、どの Servi
 
 ### web の Ingress
 
-taskapp の Ingress は `web.yaml`（`taskapp/k8s/plain/local/web.yaml`）の末尾に定義されています。
+taskapp の Ingress は `web.yaml`（`apps/taskapp/k8s/plain/local/web.yaml`）の末尾に定義されています。
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -561,7 +561,7 @@ kubectl get pod -n ingress-nginx
 
 taskapp は複数コンポーネントからなる構成のため少し複雑です。「単一アプリを Ingress で公開する最小構成」を確認したい場合は、`echo-bootstrap` リポジトリが参考になります。これは echo アプリケーション 1 つを namespace・Deployment・Service・Ingress の 4 ファイルでデプロイする、シンプルなテンプレートです。
 
-`echo-bootstrap/ingress.yaml` は次のようになっています。
+`apps/cd/echo-bootstrap/ingress.yaml` は次のようになっています。
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -585,7 +585,7 @@ spec:
               number: 80
 ```
 
-taskapp の Ingress と構造はまったく同じで、`host` が `echo.gihyo.local`、転送先 Service が `echo` になっているだけです。`echo-bootstrap/kustomization.yaml` では namespace・deployment・service・ingress の 4 つのマニフェストをまとめて管理しており、`kubectl apply -k .`（Kustomize による一括適用）でデプロイできる構成になっています。「Ingress とは結局、ホスト名と Service を結びつけるだけのシンプルなルーティング定義である」ということが、この最小例からよく分かります。
+taskapp の Ingress と構造はまったく同じで、`host` が `echo.gihyo.local`、転送先 Service が `echo` になっているだけです。`apps/cd/echo-bootstrap/kustomization.yaml` では namespace・deployment・service・ingress の 4 つのマニフェストをまとめて管理しており、`kubectl apply -k .`（Kustomize による一括適用）でデプロイできる構成になっています。「Ingress とは結局、ホスト名と Service を結びつけるだけのシンプルなルーティング定義である」ということが、この最小例からよく分かります。
 
 ---
 

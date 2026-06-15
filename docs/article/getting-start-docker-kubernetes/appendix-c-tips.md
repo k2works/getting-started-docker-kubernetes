@@ -76,7 +76,7 @@ OCI は、コンテナの相互運用性を保つための業界標準を策定�
 - **イメージ仕様（image-spec）**：コンテナイメージのフォーマット
 - **ランタイム仕様（runtime-spec）**：コンテナの実行方法
 
-`image-bootstrap` リポジトリの Dockerfile（`tmp/image-bootstrap/Dockerfile`）にある `LABEL org.opencontainers.image.source` は、まさにこの OCI イメージ仕様で定義された標準ラベルです。
+`image-bootstrap` リポジトリの Dockerfile（`apps/image-bootstrap/Dockerfile`）にある `LABEL org.opencontainers.image.source` は、まさにこの OCI イメージ仕様で定義された標準ラベルです。
 
 ```dockerfile
 FROM gcr.io/distroless/base-debian11:nonroot
@@ -163,7 +163,7 @@ kubens task-app         # 以降の kubectl のデフォルト名前空間を変
 
 本番イメージは軽量化のため `curl` や `dig` などのツールを含まないことがほとんどです（C.3、C.5 参照）。そこで、クラスタ内のネットワークや DNS を調査するために、ツール一式を詰めた「デバッグ用コンテナ」を一時的に起動するテクニックが有効です。
 
-本シリーズの `container-kit` リポジトリには、まさにこの用途のためのデバッグ用イメージが用意されています。`tmp/container-kit/containers/debug/Dockerfile` は次の内容です。
+本シリーズの `container-kit` リポジトリには、まさにこの用途のためのデバッグ用イメージが用意されています。`apps/container-kit/containers/debug/Dockerfile` は次の内容です。
 
 ```dockerfile
 FROM ubuntu:23.10
@@ -186,7 +186,7 @@ kubectl run debug --rm -it --image=ghcr.io/gihyodocker/debug -- /bin/bash
 # mysql -h mysql -u root -p
 ```
 
-`container-kit` には、このほかにもリバースプロキシ用の `simple-nginx-proxy` や、検証用ジョブの `time-limit-job` といった補助コンテナが含まれています（出典: `tmp/container-kit/README-ja.md`）。
+`container-kit` には、このほかにもリバースプロキシ用の `simple-nginx-proxy` や、検証用ジョブの `time-limit-job` といった補助コンテナが含まれています（出典: `apps/container-kit/README-ja.md`）。
 
 ### トラブルシュートの定石
 
@@ -306,7 +306,7 @@ resources:
 
 ### 非 root ユーザーで実行する
 
-コンテナ内のプロセスを root のまま動かすと、万一の侵害時の被害が大きくなります。本シリーズの `image-bootstrap` では、distroless の非 root イメージを使い、`USER` を明示しています（`tmp/image-bootstrap/Dockerfile`）。
+コンテナ内のプロセスを root のまま動かすと、万一の侵害時の被害が大きくなります。本シリーズの `image-bootstrap` では、distroless の非 root イメージを使い、`USER` を明示しています（`apps/image-bootstrap/Dockerfile`）。
 
 ```dockerfile
 FROM gcr.io/distroless/base-debian11:nonroot
@@ -322,7 +322,7 @@ CMD ["server"]
 
 ### イメージの脆弱性スキャン
 
-ビルドしたイメージに既知の脆弱性が含まれていないかは、CI に脆弱性スキャンを組み込んで継続的にチェックします。`image-bootstrap` では Trivy を使っており、`tmp/image-bootstrap/trivy.yaml` で複数のスキャナを有効化しています。
+ビルドしたイメージに既知の脆弱性が含まれていないかは、CI に脆弱性スキャンを組み込んで継続的にチェックします。`image-bootstrap` では Trivy を使っており、`apps/image-bootstrap/trivy.yaml` で複数のスキャナを有効化しています。
 
 ```yaml
 scan:

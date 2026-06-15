@@ -12,7 +12,7 @@
 4. クレデンシャル（秘匿情報）の扱い方
 5. 永続化データの扱い方
 
-解説にあたっては、書籍『Docker/Kubernetes 実践コンテナ開発入門（第 2 版）』のサンプルリポジトリに相当する、本リポジトリ内の実コードを引用します。具体的には `tmp/echo`（シンプルな Go の HTTP サーバー）と `tmp/taskapp`（複数コンテナで構成されるタスク管理アプリケーション）の 2 つを題材とします。実在するファイルのみを引用し、内容を捏造しないことを心がけています。
+解説にあたっては、書籍『Docker/Kubernetes 実践コンテナ開発入門（第 2 版）』のサンプルリポジトリに相当する、本リポジトリ内の実コードを引用します。具体的には `apps/echo`（シンプルな Go の HTTP サーバー）と `apps/taskapp`（複数コンテナで構成されるタスク管理アプリケーション）の 2 つを題材とします。実在するファイルのみを引用し、内容を捏造しないことを心がけています。
 
 なお、本章で示すコマンド実行例の出力は、環境によって異なる場合があるため「例」として扱ってください。
 
@@ -37,9 +37,9 @@
 
 ### taskapp の分割例
 
-本リポジトリの `tmp/taskapp/compose.yaml` は、この原則を実際のアプリケーションに適用した好例です。タスク管理アプリケーション「taskapp」は、1 つの大きなコンテナではなく、関心事ごとに複数のサービス（コンテナ）へ分割されています。
+本リポジトリの `apps/taskapp/compose.yaml` は、この原則を実際のアプリケーションに適用した好例です。タスク管理アプリケーション「taskapp」は、1 つの大きなコンテナではなく、関心事ごとに複数のサービス（コンテナ）へ分割されています。
 
-`tmp/taskapp/compose.yaml` で定義されているサービスを整理すると、次のようになります。
+`apps/taskapp/compose.yaml` で定義されているサービスを整理すると、次のようになります。
 
 | サービス | 関心事（役割） |
 | :--- | :--- |
@@ -50,7 +50,7 @@
 | `web` | Web フロントエンドサーバー |
 | `nginx-web` | Web の前段リバースプロキシ・静的配信 |
 
-たとえば `api` サービスと `web` サービスは、それぞれ独立した Dockerfile からビルドされます（`tmp/taskapp/compose.yaml`）。
+たとえば `api` サービスと `web` サービスは、それぞれ独立した Dockerfile からビルドされます（`apps/taskapp/compose.yaml`）。
 
 ```yaml
   api:
@@ -78,7 +78,7 @@
 
 特に示唆に富むのが `migrator` サービスの存在です。データベースのスキーママイグレーションは「アプリケーションの起動」とは別の関心事です。これをアプリケーション本体に組み込んでしまうと、アプリのスケールアウト時に複数のインスタンスが同時にマイグレーションを実行してしまう、といった問題が起こりえます。
 
-`tmp/taskapp/compose.yaml` では、マイグレーションを専用のコンテナとして切り出し、`mysql` への依存（`depends_on`）を明示したうえで、起動時に一度だけマイグレーションを実行する構成になっています。
+`apps/taskapp/compose.yaml` では、マイグレーションを専用のコンテナとして切り出し、`mysql` への依存（`depends_on`）を明示したうえで、起動時に一度だけマイグレーションを実行する構成になっています。
 
 ```yaml
   migrator:
@@ -111,9 +111,9 @@
 
 しかし、この約束には落とし穴があります。代表的なものが「CPU アーキテクチャの違い」です。近年は Apple Silicon（arm64）を搭載した開発機が増える一方で、本番のクラウドサーバーは amd64（x86_64）であることが多く、「ローカルでビルドしたイメージが本番で動かない」という事態が起こりえます。これを解決するのが、マルチプラットフォーム対応のビルドです。
 
-### echo/Dockerfile.slim によるクロスプラットフォームビルド
+### apps/echo/Dockerfile.slim によるクロスプラットフォームビルド
 
-本リポジトリの `tmp/echo/Dockerfile.slim` は、Go で書かれたシンプルな HTTP サーバー（後述の `tmp/echo/main.go`）を、複数の CPU アーキテクチャに対応する形でビルドする例です。全文は次のとおりです。
+本リポジトリの `apps/echo/Dockerfile.slim` は、Go で書かれたシンプルな HTTP サーバー（後述の `apps/echo/main.go`）を、複数の CPU アーキテクチャに対応する形でビルドする例です。全文は次のとおりです。
 
 ```dockerfile
 FROM --platform=$TARGETPLATFORM golang:1.21.6 AS build
@@ -141,11 +141,11 @@ CMD ["echo"]
 - `TARGETPLATFORM`：`linux/amd64`、`linux/arm64` など、対象プラットフォーム全体
 - `TARGETARCH`：`amd64`、`arm64` など、対象の CPU アーキテクチャ
 
-`tmp/echo/Dockerfile.slim` の 1 行目で `FROM --platform=$TARGETPLATFORM golang:1.21.6` と指定することで、ビルドの基盤となるベースイメージそのものを対象プラットフォームに合わせて取得します。
+`apps/echo/Dockerfile.slim` の 1 行目で `FROM --platform=$TARGETPLATFORM golang:1.21.6` と指定することで、ビルドの基盤となるベースイメージそのものを対象プラットフォームに合わせて取得します。
 
 #### `GOARCH=${TARGETARCH}` によるクロスコンパイル
 
-Go はクロスコンパイルに優れた言語です。`GOARCH` 環境変数に対象アーキテクチャを指定するだけで、そのアーキテクチャ向けのバイナリを生成できます。`tmp/echo/Dockerfile.slim` では、Docker から渡された `TARGETARCH` をそのまま `GOARCH` に渡しています。
+Go はクロスコンパイルに優れた言語です。`GOARCH` 環境変数に対象アーキテクチャを指定するだけで、そのアーキテクチャ向けのバイナリを生成できます。`apps/echo/Dockerfile.slim` では、Docker から渡された `TARGETARCH` をそのまま `GOARCH` に渡しています。
 
 ```dockerfile
 RUN GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -o bin/echo main.go
@@ -158,17 +158,17 @@ RUN GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -o bin/echo main.go
 `CGO_ENABLED=0` は、cgo（Go から C ライブラリを呼び出す仕組み）を無効化する指定です。これには 2 つの大きな意味があります。
 
 1. **静的リンクバイナリの生成**：cgo を無効化すると、C ライブラリへの動的リンクがなくなり、外部の共有ライブラリに依存しない自己完結したバイナリができます。
-2. **distroless イメージとの相性**：`tmp/echo/Dockerfile.slim` の後半では、実行用イメージとして `gcr.io/distroless/base-debian11` という非常に小さなイメージを使っています。distroless イメージにはシェルや余分なライブラリが含まれていないため、静的リンクされたバイナリでなければ動きません。`CGO_ENABLED=0` はこの軽量・安全なイメージを成立させるための前提条件なのです。
+2. **distroless イメージとの相性**：`apps/echo/Dockerfile.slim` の後半では、実行用イメージとして `gcr.io/distroless/base-debian11` という非常に小さなイメージを使っています。distroless イメージにはシェルや余分なライブラリが含まれていないため、静的リンクされたバイナリでなければ動きません。`CGO_ENABLED=0` はこの軽量・安全なイメージを成立させるための前提条件なのです。
 
 このように、ビルド用イメージ（`golang:1.21.6`）と実行用イメージ（`distroless`）を分ける「マルチステージビルド」と、クロスプラットフォーム対応を組み合わせることで、「小さく」「どこでも動く」イメージが実現されています。
 
-なお `tmp/taskapp/containers/web/Dockerfile.slim` でも、ビルドステージで `FROM --platform=$BUILDPLATFORM` と `ARG TARGETARCH`、`GOARCH=${TARGETARCH}` を使い、実行ステージに distroless の nonroot イメージを採用するという、同様の設計が採られています。
+なお `apps/taskapp/containers/web/Dockerfile.slim` でも、ビルドステージで `FROM --platform=$BUILDPLATFORM` と `ARG TARGETARCH`、`GOARCH=${TARGETARCH}` を使い、実行ステージに distroless の nonroot イメージを採用するという、同様の設計が採られています。
 
 ---
 
 ## 3.3 コンテナフレンドリなアプリケーション
 
-コンテナは、アプリケーション側が「コンテナの作法」に従って作られていて初めて、その真価を発揮します。ここでは、コンテナと相性のよいアプリケーションが備えるべき 3 つの性質を、`tmp/echo/main.go` を題材に解説します。
+コンテナは、アプリケーション側が「コンテナの作法」に従って作られていて初めて、その真価を発揮します。ここでは、コンテナと相性のよいアプリケーションが備えるべき 3 つの性質を、`apps/echo/main.go` を題材に解説します。
 
 ### グレースフルシャットダウン（SIGINT / SIGTERM への対応）
 
@@ -176,7 +176,7 @@ RUN GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -o bin/echo main.go
 
 ここで重要なのは、`SIGTERM` を受け取ったときに「処理中のリクエストを最後まで完了させてから、安全に終了する」ことです。これを「グレースフルシャットダウン」と呼びます。これを怠ると、リクエストの途中でプロセスが殺され、ユーザーにエラーが返ってしまいます。
 
-`tmp/echo/main.go` は、このグレースフルシャットダウンを実装したシンプルな例です。
+`apps/echo/main.go` は、このグレースフルシャットダウンを実装したシンプルな例です。
 
 ```go
 package main
@@ -239,7 +239,7 @@ func main() {
 
 データベースの接続先、ポート番号、外部サービスの URL といった「環境ごとに変わる値」をソースコードやイメージの中に埋め込んでしまうと、環境が変わるたびにイメージを作り直さなければなりません。これでは「同じイメージをどこでも動かす」というポータビリティの利点が失われてしまいます。
 
-そこで、環境ごとに変わる値は、イメージの外側、すなわち環境変数や設定ファイルとして注入します。`tmp/taskapp/compose.yaml` の `migrator` サービスは、まさにこの考え方を体現しています。
+そこで、環境ごとに変わる値は、イメージの外側、すなわち環境変数や設定ファイルとして注入します。`apps/taskapp/compose.yaml` の `migrator` サービスは、まさにこの考え方を体現しています。
 
 ```yaml
     environment:
@@ -257,7 +257,7 @@ func main() {
 
 その理由は、コンテナ環境ではログの収集・集約は基盤（Docker や Kubernetes、ログ収集エージェント）の責務だからです。アプリケーションが自前でログファイルを管理してしまうと、ローテーションや収集が煩雑になり、コンテナの使い捨て（揮発性）という性質とも噛み合いません。
 
-`tmp/echo/main.go` を見ると、`log.Println("Received request")` や `log.Println("Start server")` のように、すべてのログを Go 標準の `log` パッケージ経由で出力しています。`log` パッケージはデフォルトで標準エラー出力へ書き出すため、特別な設定なしに「ログは標準出力（標準エラー出力）へ」という作法を満たしています。こうしておけば、`docker logs <コンテナ名>` のようなコマンドでログを確認でき、ログ収集基盤にもそのまま乗せられます。
+`apps/echo/main.go` を見ると、`log.Println("Received request")` や `log.Println("Start server")` のように、すべてのログを Go 標準の `log` パッケージ経由で出力しています。`log` パッケージはデフォルトで標準エラー出力へ書き出すため、特別な設定なしに「ログは標準出力（標準エラー出力）へ」という作法を満たしています。こうしておけば、`docker logs <コンテナ名>` のようなコマンドでログを確認でき、ログ収集基盤にもそのまま乗せられます。
 
 ---
 
@@ -273,9 +273,9 @@ func main() {
 
 そこで、秘匿情報は「コードやイメージから分離し、実行時に安全に注入する」ことが求められます。
 
-### taskapp/compose.yaml の secrets
+### apps/taskapp/compose.yaml の secrets
 
-`tmp/taskapp/compose.yaml` では、Docker Compose の `secrets` 機能を使って秘匿情報を注入しています。まず、ファイルの末尾で「どのファイルを secret とするか」を定義します。
+`apps/taskapp/compose.yaml` では、Docker Compose の `secrets` 機能を使って秘匿情報を注入しています。まず、ファイルの末尾で「どのファイルを secret とするか」を定義します。
 
 ```yaml
 secrets:
@@ -313,9 +313,9 @@ secrets:
 
 通常、MySQL の公式イメージは `MYSQL_ROOT_PASSWORD` 環境変数でパスワードそのものを受け取ります。しかしこれだと、パスワードが平文で環境変数に乗ってしまいます。そこで多くの公式イメージは、末尾に `_FILE` を付けた環境変数（例：`MYSQL_ROOT_PASSWORD_FILE`）を用意しており、その値として「パスワードが書かれたファイルのパス」を渡すと、イメージ側がそのファイルを読んでパスワードとして使ってくれます。
 
-`tmp/taskapp/compose.yaml` では、`MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password` のように、secret がマウントされるパスを `*_FILE` 変数で指し示すことで、Docker の secret 機構と MySQL イメージの機能をきれいに連携させています。
+`apps/taskapp/compose.yaml` では、`MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password` のように、secret がマウントされるパスを `*_FILE` 変数で指し示すことで、Docker の secret 機構と MySQL イメージの機能をきれいに連携させています。
 
-このパターンはアプリケーション側でも活用されています。`tmp/taskapp/containers/migrator/migrate.sh` を見ると、第 5 引数として渡されたものがファイルとして存在すればその中身をパスワードとして読み、そうでなければ引数そのものをパスワードとして扱う、という柔軟な処理になっています。
+このパターンはアプリケーション側でも活用されています。`apps/taskapp/containers/migrator/migrate.sh` を見ると、第 5 引数として渡されたものがファイルとして存在すればその中身をパスワードとして読み、そうでなければ引数そのものをパスワードとして扱う、という柔軟な処理になっています。
 
 ```bash
 if [ -e "$5" ]; then
@@ -338,7 +338,7 @@ fi
 | `.env` ファイル | Compose が読み込む環境変数ファイル | Git 管理外にする必要あり。中身は平文 |
 | Docker secret（`*_FILE`） | ファイルとして `/run/secrets` にマウント | イメージに残らず tmpfs 上で扱える。最も推奨される |
 
-ポイントは、秘匿性の高い情報ほど「イメージにもコードにも残さず、実行時にファイルとして注入する」方向に倒すことです。`tmp/taskapp` は、まさにこの方針に沿って `secrets` と `*_FILE` パターンを組み合わせている好例といえます。
+ポイントは、秘匿性の高い情報ほど「イメージにもコードにも残さず、実行時にファイルとして注入する」方向に倒すことです。`apps/taskapp` は、まさにこの方針に沿って `secrets` と `*_FILE` パターンを組み合わせている好例といえます。
 
 ---
 
@@ -364,9 +364,9 @@ fi
 - **バインドマウント**は、ホストマシン上の特定のディレクトリやファイルをコンテナにマウントする方式です。開発時にローカルのソースコードをコンテナへ反映させたり、設定ファイルを差し込んだりするのに便利です。一方で、ホストのディレクトリ構造に依存するため、ポータビリティは下がります。
 - **tmpfs マウント**は、データをホストのメモリ上に置く方式で、ディスクに書き込まれません。コンテナの停止とともに消えるため、3.4 で見た secret のような「ディスクに残したくない一時データ」に向いています。
 
-### taskapp/compose.yaml の volumes
+### apps/taskapp/compose.yaml の volumes
 
-`tmp/taskapp/compose.yaml` では、ボリュームを使ってデータを永続化しています。まずファイル末尾で、名前付きボリュームを宣言します。
+`apps/taskapp/compose.yaml` では、ボリュームを使ってデータを永続化しています。まずファイル末尾で、名前付きボリュームを宣言します。
 
 ```yaml
 volumes:
@@ -425,7 +425,7 @@ volumes:
 - 開発時にホストのコードを即座に反映したい → **バインドマウント**
 - ディスクに残したくない一時データ・秘匿情報 → **tmpfs マウント**
 
-`tmp/taskapp` は、永続化が必要な DB データと、コンテナ間で共有したいアセットの両方にボリュームを採用しており、実運用に即した堅実な選択がなされています。
+`apps/taskapp` は、永続化が必要な DB データと、コンテナ間で共有したいアセットの両方にボリュームを採用しており、実運用に即した堅実な選択がなされています。
 
 ---
 
@@ -433,15 +433,15 @@ volumes:
 
 この章では、実用的なコンテナを構築・デプロイするための 5 つの観点を学びました。
 
-1. **アプリケーションとコンテナの粒度**：1 コンテナ 1 関心事の原則に従い、`tmp/taskapp` のように api / web / mysql / migrator / nginx といった関心事ごとにコンテナを分割することで、変更を楽に安全にできる構造になります。
+1. **アプリケーションとコンテナの粒度**：1 コンテナ 1 関心事の原則に従い、`apps/taskapp` のように api / web / mysql / migrator / nginx といった関心事ごとにコンテナを分割することで、変更を楽に安全にできる構造になります。
 
-2. **コンテナのポータビリティ**：`tmp/echo/Dockerfile.slim` のように `--platform=$TARGETPLATFORM`、`ARG TARGETARCH`、`GOARCH=${TARGETARCH}`、`CGO_ENABLED=0` を活用し、distroless との組み合わせで「小さく」「どこでも動く」イメージを作れます。
+2. **コンテナのポータビリティ**：`apps/echo/Dockerfile.slim` のように `--platform=$TARGETPLATFORM`、`ARG TARGETARCH`、`GOARCH=${TARGETARCH}`、`CGO_ENABLED=0` を活用し、distroless との組み合わせで「小さく」「どこでも動く」イメージを作れます。
 
-3. **コンテナフレンドリなアプリケーション**：`tmp/echo/main.go` のように `SIGINT` / `SIGTERM` を捕捉してグレースフルシャットダウンを行い、設定は環境変数で外部化し（The Twelve-Factor App）、ログは標準出力へ出すことで、コンテナと相性のよいアプリになります。
+3. **コンテナフレンドリなアプリケーション**：`apps/echo/main.go` のように `SIGINT` / `SIGTERM` を捕捉してグレースフルシャットダウンを行い、設定は環境変数で外部化し（The Twelve-Factor App）、ログは標準出力へ出すことで、コンテナと相性のよいアプリになります。
 
-4. **クレデンシャルの扱い方**：`tmp/taskapp/compose.yaml` の `secrets` と `*_FILE` パターンを用いて、秘匿情報をイメージやコードから分離し、`/run/secrets` へファイルとして安全に注入します。
+4. **クレデンシャルの扱い方**：`apps/taskapp/compose.yaml` の `secrets` と `*_FILE` パターンを用いて、秘匿情報をイメージやコードから分離し、`/run/secrets` へファイルとして安全に注入します。
 
-5. **永続化データの扱い方**：`tmp/taskapp/compose.yaml` の `volumes`（`mysql_data`、`assets_data`）のように、ボリューム / バインドマウント / tmpfs を使い分けて、データの永続化とコンテナ間共有を実現します。
+5. **永続化データの扱い方**：`apps/taskapp/compose.yaml` の `volumes`（`mysql_data`、`assets_data`）のように、ボリューム / バインドマウント / tmpfs を使い分けて、データの永続化とコンテナ間共有を実現します。
 
 これらの原則は、いずれも「変更を楽に安全にできて役に立つソフトウェア」というよいソフトウェアの条件に直結しています。単に動くコンテナではなく、変化に強く、運用に耐えるコンテナを設計する視点を、ぜひ身につけてください。
 

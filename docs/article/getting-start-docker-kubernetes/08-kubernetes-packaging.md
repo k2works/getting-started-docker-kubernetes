@@ -25,12 +25,12 @@ Kustomize は、素の YAML マニフェストを **テンプレート化せず�
 
 ### base 構造 — 共通の土台をまとめる
 
-本書のサンプルアプリケーション taskapp では、`k8s/kustomize/base` ディレクトリにアプリケーション全体の土台となるマニフェストを配置しています（出典: `taskapp/k8s/kustomize/base`）。
+本書のサンプルアプリケーション taskapp では、`k8s/kustomize/base` ディレクトリにアプリケーション全体の土台となるマニフェストを配置しています（出典: `apps/taskapp/k8s/kustomize/base`）。
 
 ルートの `kustomization.yaml` は、コンポーネントごとのサブディレクトリを `resources` として束ねます。
 
 ```yaml
-# taskapp/k8s/kustomize/base/kustomization.yaml
+# apps/taskapp/k8s/kustomize/base/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -57,7 +57,7 @@ commonLabels:
 `resources` で参照される各コンポーネントも、それぞれ `kustomization.yaml` を持ちます。たとえば API コンポーネントは次のようになっています。
 
 ```yaml
-# taskapp/k8s/kustomize/base/api/kustomization.yaml
+# apps/taskapp/k8s/kustomize/base/api/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -82,7 +82,7 @@ commonLabels:
 データベース系のコンポーネントでも同じ仕組みが使われています。
 
 ```yaml
-# taskapp/k8s/kustomize/base/mysql/kustomization.yaml
+# apps/taskapp/k8s/kustomize/base/mysql/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -108,7 +108,7 @@ commonLabels:
 migrator コンポーネントは、データベースのマイグレーションを実行する Job をまとめています。
 
 ```yaml
-# taskapp/k8s/kustomize/base/migrator/kustomization.yaml
+# apps/taskapp/k8s/kustomize/base/migrator/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -134,7 +134,7 @@ commonLabels:
 
 ```bash
 # base 全体を合成して結果を表示する（クラスタには適用しない）
-kubectl kustomize taskapp/k8s/kustomize/base
+kubectl kustomize apps/taskapp/k8s/kustomize/base
 ```
 
 出力には、`namespace: taskapp` が各リソースに設定され、`commonLabels` が反映され、`secretGenerator` から生成された Secret が含まれた、完成形のマニフェストが並びます。適用前にこのコマンドで差分を目視確認することを習慣にすると、意図しない変更を防げます。
@@ -145,7 +145,7 @@ kubectl kustomize taskapp/k8s/kustomize/base
 
 ```bash
 # kustomization.yaml を解釈してクラスタに適用する
-kubectl apply -k taskapp/k8s/kustomize/base
+kubectl apply -k apps/taskapp/k8s/kustomize/base
 ```
 
 内部的には `kubectl kustomize` で合成した結果を `kubectl apply` に渡すのと同じ動作になります。削除したい場合は `kubectl delete -k` を使います。
@@ -154,7 +154,7 @@ kubectl apply -k taskapp/k8s/kustomize/base
 
 「はじめに」で述べた重複の問題は、Kustomize の **base / overlay** という考え方で解決します。共通部分を `base` に置き、環境固有の差分だけを `overlay` 側の `kustomization.yaml` に記述します。overlay は `resources`（または `bases`）で base を参照し、その上に変換を重ねます。
 
-GitOps のブートストラップ用に用意された echo-bootstrap は、overlay 的に base を参照して上書きする良い例です（出典: `echo-bootstrap/kustomization.yaml`）。
+GitOps のブートストラップ用に用意された echo-bootstrap は、overlay 的に base を参照して上書きする良い例です（出典: `apps/cd/echo-bootstrap/kustomization.yaml`）。
 
 ```yaml
 # echo-bootstrap/kustomization.yaml
@@ -174,7 +174,7 @@ commonLabels:
 
 ### namePrefix と images — 名前とイメージを変換する
 
-overlay でよく使われる変換に、`namePrefix` と `images` があります。argocd のサンプルにある kustomize-guestbook は、`namePrefix` の最小例です（出典: `argocd-example-apps/kustomize-guestbook`）。
+overlay でよく使われる変換に、`namePrefix` と `images` があります。argocd のサンプルにある kustomize-guestbook は、`namePrefix` の最小例です（出典: `apps/cd/argocd-example-apps/kustomize-guestbook`）。
 
 ```yaml
 # argocd-example-apps/kustomize-guestbook/kustomization.yaml
@@ -232,7 +232,7 @@ images:
 
 Helm は、Kubernetes アプリケーションを **チャート（Chart）** という単位でパッケージ化するためのツールです。Kustomize がテンプレートを使わずに YAML を重ね合わせるのに対し、Helm は **Go テンプレート** でマニフェストを記述し、`values.yaml` で与えた値を埋め込んで最終的なマニフェストを生成します。バージョン管理されたアプリケーションを配布・インストール・アップグレードする用途に適しています。
 
-ここでは argocd のサンプルにある helm-guestbook を題材に、チャートの構造を見ていきます（出典: `argocd-example-apps/helm-guestbook`）。チャートは次のようなファイル構成です。
+ここでは argocd のサンプルにある helm-guestbook を題材に、チャートの構造を見ていきます（出典: `apps/cd/argocd-example-apps/helm-guestbook`）。チャートは次のようなファイル構成です。
 
 ```bash
 helm-guestbook/

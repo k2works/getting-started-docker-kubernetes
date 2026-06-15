@@ -90,7 +90,7 @@ asdf は、複数の言語・ツールのバージョンを 1 つの仕組みで
 
 ### `.tool-versions` でバージョンを固定する
 
-本リポジトリのサンプルアプリ `taskapp` では、`taskapp/.tool-versions`（出典: `getting-started-docker-kubernetes` リポジトリ）で次のようにツールとバージョンを固定しています。
+本リポジトリのサンプルアプリ `taskapp` では、`apps/taskapp/.tool-versions`（出典: `getting-started-docker-kubernetes` リポジトリ）で次のようにツールとバージョンを固定しています。
 
 ```text
 golang 1.21.6
@@ -108,7 +108,7 @@ helm 3.13.3
 - `kubectx` — `kubectl` のコンテキスト・名前空間を素早く切り替えるツール
 - `helm` — Kubernetes アプリケーションのパッケージマネージャ
 
-別のサンプルである `echo` アプリでは、`echo/.tool-versions`（出典: 同リポジトリ）でより最小限の構成になっており、`kustomize` のみを固定しています。
+別のサンプルである `echo` アプリでは、`apps/echo/.tool-versions`（出典: 同リポジトリ）でより最小限の構成になっており、`kustomize` のみを固定しています。
 
 ```text
 kustomize 5.3.0
@@ -136,7 +136,7 @@ asdf global golang 1.21.6
 
 ### `.tool-versions` から一括セットアップするスクリプト
 
-`taskapp` には、`.tool-versions` を読み取ってプラグイン追加とインストールをまとめて実行するセットアップスクリプトが用意されています。出典は `taskapp/hack/install-tools.sh`（`getting-started-docker-kubernetes` リポジトリ）です。
+`taskapp` には、`.tool-versions` を読み取ってプラグイン追加とインストールをまとめて実行するセットアップスクリプトが用意されています。出典は `apps/taskapp/hack/install-tools.sh`（`getting-started-docker-kubernetes` リポジトリ）です。
 
 ```bash
 #!/usr/bin/env bash
@@ -252,7 +252,7 @@ Windows では、Rancher Desktop は WSL2 を基盤として動作します（A.
 本付録では、Docker / Kubernetes を学習・開発するための周辺ツールを 4 つ紹介しました。それぞれが解決する課題を整理すると次のとおりです。
 
 - WSL2 — Windows 上で Linux 環境を動かし、Linux 前提のツールチェーンや Docker をスムーズに利用できるようにする。
-- asdf — `.tool-versions` で言語・ツールのバージョンを宣言的に固定し、チーム全体で同じ環境を再現する。本リポジトリの `taskapp/.tool-versions` と `taskapp/hack/install-tools.sh` がその実例である。
+- asdf — `.tool-versions` で言語・ツールのバージョンを宣言的に固定し、チーム全体で同じ環境を再現する。本リポジトリの `apps/taskapp/.tool-versions` と `apps/taskapp/hack/install-tools.sh` がその実例である。
 - kind — Docker さえあれば手元でマルチノードの Kubernetes クラスタを起動・破棄でき、学習や CI に適する。
 - Rancher Desktop — Docker Desktop の代替として、containerd/dockerd の切り替えと内蔵 k3s により、ローカルでコンテナと Kubernetes をまとめて扱える。
 

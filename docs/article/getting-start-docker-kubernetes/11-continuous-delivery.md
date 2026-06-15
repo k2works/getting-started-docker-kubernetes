@@ -109,9 +109,9 @@ Flux は CNCF（Cloud Native Computing Foundation）の卒業プロジェクト�
 
 ### 配信対象となる Kustomize マニフェストの例
 
-Flux が配信する対象は、宣言的に書かれた Kubernetes マニフェストです。本書のサンプルリポジトリ `echo-bootstrap`（出典: `echo-bootstrap/`）には、Kustomize で束ねられたマニフェスト群が含まれています。これは GitOps で配信するアプリケーションの典型例として参考になります。
+Flux が配信する対象は、宣言的に書かれた Kubernetes マニフェストです。本書のサンプルリポジトリ `echo-bootstrap`（出典: `apps/cd/echo-bootstrap/`）には、Kustomize で束ねられたマニフェスト群が含まれています。これは GitOps で配信するアプリケーションの典型例として参考になります。
 
-`echo-bootstrap/kustomization.yaml` は、複数のマニフェストを 1 つのアプリケーションとしてまとめています。
+`apps/cd/echo-bootstrap/kustomization.yaml` は、複数のマニフェストを 1 つのアプリケーションとしてまとめています。
 
 ```yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -126,7 +126,7 @@ commonLabels:
   app.kubernetes.io/name: echo
 ```
 
-実際に配信される Deployment は `echo-bootstrap/deployment.yaml` に定義されています（抜粋）。
+実際に配信される Deployment は `apps/cd/echo-bootstrap/deployment.yaml` に定義されています（抜粋）。
 
 ```yaml
 apiVersion: apps/v1
@@ -197,7 +197,7 @@ spec:
 
 Argo CD も pull 型 GitOps を実現する CNCF プロジェクトです。Flux との大きな違いは、Web UI を備え、アプリケーションの同期状態（Synced / OutOfSync）や健全性（Healthy など）を視覚的に確認できる点にあります。
 
-Argo CD では、同期対象を `Application` というカスタムリソースで表現します。`Application` には「どの Git リポジトリの、どのパスの、どのリビジョンを、どの名前空間に同期するか」を記述します。本節では、Argo CD のデモ用に公開されているサンプル集 `argocd-example-apps`（出典: `argocd-example-apps/`）を引用しながら解説します。
+Argo CD では、同期対象を `Application` というカスタムリソースで表現します。`Application` には「どの Git リポジトリの、どのパスの、どのリビジョンを、どの名前空間に同期するか」を記述します。本節では、Argo CD のデモ用に公開されているサンプル集 `argocd-example-apps`（出典: `apps/cd/argocd-example-apps/`）を引用しながら解説します。
 
 `Application` の記述は一般的に次のような形になります（一般例。`argocd-example-apps` のアプリを同期対象とした場合）。
 
@@ -227,11 +227,11 @@ spec:
 
 ### さまざまなマニフェスト形式
 
-`argocd-example-apps` の README（出典: `argocd-example-apps/README.md`）には、同じ guestbook アプリをさまざまな形式で表現したサンプルが並んでいます。Argo CD は、プレーンな YAML、Kustomize、Helm のいずれの形式でもそのまま同期できます。
+`argocd-example-apps` の README（出典: `apps/cd/argocd-example-apps/README.md`）には、同じ guestbook アプリをさまざまな形式で表現したサンプルが並んでいます。Argo CD は、プレーンな YAML、Kustomize、Helm のいずれの形式でもそのまま同期できます。
 
 #### プレーン YAML 形式（guestbook）
 
-`argocd-example-apps/guestbook/guestbook-ui-deployment.yaml` は、テンプレート機構を使わない素の Kubernetes マニフェストです。
+`apps/cd/argocd-example-apps/guestbook/guestbook-ui-deployment.yaml` は、テンプレート機構を使わない素の Kubernetes マニフェストです。
 
 ```yaml
 apiVersion: apps/v1
@@ -258,7 +258,7 @@ spec:
 
 #### Kustomize 形式（kustomize-guestbook）
 
-`argocd-example-apps/kustomize-guestbook/kustomization.yaml` は、Kustomize で複数のリソースを束ね、`namePrefix` で名前にプレフィックスを付けています。
+`apps/cd/argocd-example-apps/kustomize-guestbook/kustomization.yaml` は、Kustomize で複数のリソースを束ね、`namePrefix` で名前にプレフィックスを付けています。
 
 ```yaml
 namePrefix: kustomize-
@@ -274,7 +274,7 @@ Argo CD はパスに `kustomization.yaml` があれば、自動的に Kustomize 
 
 #### Helm 形式（helm-guestbook）
 
-`argocd-example-apps/helm-guestbook/templates/deployment.yaml` は、Helm のテンプレート構文で値を差し込む形式です（抜粋）。
+`apps/cd/argocd-example-apps/helm-guestbook/templates/deployment.yaml` は、Helm のテンプレート構文で値を差し込む形式です（抜粋）。
 
 ```yaml
 apiVersion: apps/v1
@@ -292,7 +292,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
 ```
 
-対応する値は `argocd-example-apps/helm-guestbook/values.yaml` で定義されています（抜粋）。
+対応する値は `apps/cd/argocd-example-apps/helm-guestbook/values.yaml` で定義されています（抜粋）。
 
 ```yaml
 replicaCount: 1
@@ -309,7 +309,7 @@ Argo CD はパスに `Chart.yaml` があれば Helm チャートとして認識�
 
 複数のリソースをデプロイするとき、適用の順序が重要になる場合があります。たとえば「データベースのスキーマを更新してから、新しいアプリケーションを起動したい」というケースです。Argo CD はこの順序制御を sync-waves と hook で実現します。
 
-`argocd-example-apps/sync-waves/manifests.yaml`（出典: `argocd-example-apps/sync-waves/`）から、適用順序を制御している箇所を抜粋します。
+`apps/cd/argocd-example-apps/sync-waves/manifests.yaml`（出典: `apps/cd/argocd-example-apps/sync-waves/`）から、適用順序を制御している箇所を抜粋します。
 
 ```yaml
 # PreSync フック: 本体の同期に先立って実行される（例: SQL スキーマの更新）
@@ -344,7 +344,7 @@ spec:
 - `argocd.argoproj.io/hook` は、同期のライフサイクル上のどの段階で実行するかを指定します。`PreSync` は本体の同期前、`PostSync` は同期後に実行されます。スキーマ移行のような「アプリより先に終えておきたい処理」は `PreSync` フックに置きます。
 - `argocd.argoproj.io/sync-wave` は、リソースを適用する波（wave）を数値で指定します。値が小さい波から順に適用され、各波が健全になってから次の波へ進みます。上記の例では `frontend` に `"2"` が指定されており、より小さい波のリソースが整ってから適用されます。
 
-同様に `argocd-example-apps/pre-post-sync/pre-sync-job.yaml`（出典: `argocd-example-apps/pre-post-sync/`）にも PreSync フックの例があります。
+同様に `apps/cd/argocd-example-apps/pre-post-sync/pre-sync-job.yaml`（出典: `apps/cd/argocd-example-apps/pre-post-sync/`）にも PreSync フックの例があります。
 
 ```yaml
 apiVersion: batch/v1
@@ -369,7 +369,7 @@ spec:
 
 ### blue-green デプロイの例
 
-Argo CD のサンプルには、Argo Rollouts と組み合わせた blue-green デプロイの例も含まれています。`argocd-example-apps/blue-green/templates/rollout.yaml`（出典: `argocd-example-apps/blue-green/`）では、標準の `Deployment` の代わりに Argo Rollouts が提供する `Rollout` リソースを使っています（抜粋）。
+Argo CD のサンプルには、Argo Rollouts と組み合わせた blue-green デプロイの例も含まれています。`apps/cd/argocd-example-apps/blue-green/templates/rollout.yaml`（出典: `apps/cd/argocd-example-apps/blue-green/`）では、標準の `Deployment` の代わりに Argo Rollouts が提供する `Rollout` リソースを使っています（抜粋）。
 
 ```yaml
 apiVersion: argoproj.io/v1alpha1
