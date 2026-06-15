@@ -1,0 +1,36 @@
+# local-h2 プロファイル: H2 インメモリ DB を使用した最速 TDD ループ用設定
+# Docker / Kafka に依存しないため、単一サービスを即座に起動できる。
+spring:
+  datasource:
+    url: jdbc:h2:mem:authdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  sql:
+    init:
+      mode: never
+  devtools:
+    restart:
+      enabled: true
+    livereload:
+      enabled: true
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+jwt:
+  secret: "local-h2-dev-secret-key-must-be-at-least-32-bytes!!"
+  expiration-ms: 86400000
+
+logging:
+  level:
+    com.example.authms: DEBUG

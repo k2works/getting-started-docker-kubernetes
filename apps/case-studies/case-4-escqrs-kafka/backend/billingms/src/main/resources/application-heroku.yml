@@ -1,0 +1,67 @@
+# heroku プロファイル: H2 インメモリ DB + Axon InMemory EventStore（Heroku 開発環境用）
+spring:
+  datasource:
+    url: jdbc:h2:mem:billingdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  h2:
+    console:
+      enabled: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  sql:
+    init:
+      mode: never
+
+axon:
+  axonserver:
+    enabled: false
+  kafka:
+    publisher:
+      enabled: false
+    fetcher:
+      enabled: false
+    consumer:
+      # Heroku は H2 in-memory のため Kafka 経由イベント購読は無効化しているが、
+      # Axon Kafka Extension のデフォルト event-processor-mode は tracking のままで、
+      # cross-* / local-* processor が tracking として登録されて Event Store 起動時
+      # replay → DevDataSeeder の Invoice 採番中に PK 違反を起こす。subscribing に
+      # 明示 override して全 processor を同期実行に統一する。
+      event-processor-mode: subscribing
+  eventhandling:
+    processors:
+      default:
+        mode: subscribing
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+server:
+  port: ${PORT:8086}
+
+logging:
+  level:
+    com.example.billingms: INFO
+    org.axonframework: WARN
+    root: WARN
+
+# billing パラメータの上書き（IT7 review 中対応で外部化）。
+# Heroku Config Vars で以下を設定すると application.yml デフォルトを上書き可能:
+#   - BILLING_PAYMENTDUEDAYS=60                            # NET60 支払サイト
+#   - BILLING_OVERDUE_CRON="0 0 10 * * *"                   # 毎日 10:00 に変更
+#   - BILLING_OVERDUE_ZONE="America/New_York"               # 米国本番運用時
+#   - BILLING_DISCOUNTDESCRIPTION="Corporate discount (%d%%)" # 英語通知用
+# IT8 ADR-0017 ShedLock 統合時は web=2 で BILLING_OVERDUE_CRON 一時停止（"-"）も検討可。
+# IT8 ADR-0018 SendGrid 統合時は notification.adapter=sendgrid + テンプレート ID を追加。
+
+# Heroku 開発環境（cargo-tracker-5-billingms 等）でも DevDataSeeder を有効化し、
+# 起動直後から動作確認用のサンプル Invoice（CALCULATED / INVOICED / PAID）が投入される。
+# DevDataSeeder は冪等（既存データ skip）のため、dyno 再起動時の重複も安全。
+# 本番運用時は APP_DEV_SEED_ENABLED=false で Config Vars 上書きして停止すること。
+app:
+  dev-seed:
+    enabled: true

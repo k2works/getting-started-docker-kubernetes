@@ -1,0 +1,31 @@
+/*
+ * Gradle マルチプロジェクト設定
+ *
+ * 国際貨物輸送管理システム（case-study-cargo-tracker）のバックエンドルート。
+ * 各マイクロサービスはサブプロジェクトとして配置される。
+ */
+
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+dependencyResolutionManagement {
+    repositories {
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'cargo-tracker-backend'
+
+// サブプロジェクトの登録（IT1: authms / routingms / shared / gatewayms、IT2: + bookingms、IT5: + trackingms / handlingms、IT7: + billingms）
+include 'shared'
+include 'authms'
+include 'routingms'
+include 'gatewayms'
+include 'bookingms'
+include 'trackingms'
+include 'handlingms'
+include 'billingms'

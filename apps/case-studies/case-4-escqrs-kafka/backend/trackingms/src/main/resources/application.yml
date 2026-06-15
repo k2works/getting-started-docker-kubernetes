@@ -1,0 +1,55 @@
+# trackingms 共通設定
+spring:
+  application:
+    name: trackingms
+  profiles:
+    active: local-h2
+  mvc:
+    problemdetails:
+      enabled: true
+
+server:
+  port: 8084
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+
+# Axon 共通設定（プロファイル別に上書き）
+axon:
+  serializer:
+    general: jackson
+    events: jackson
+    messages: jackson
+
+# 通知設定（IT8 T3.1 / ADR-0018）
+# adapter: logging（デフォルト、INFO/WARN ログ出力スタブ）
+#        | sendgrid（本番、SendGrid Dynamic Templates 経由でメール送信）
+notification:
+  adapter: ${NOTIFICATION_ADAPTER:logging}
+  sendgrid:
+    apiKey: ${SENDGRID_API_KEY:}
+    fromEmail: ${SENDGRID_FROM_EMAIL:noreply@cargo-tracker.example.com}
+    fromName: ${SENDGRID_FROM_NAME:Cargo Tracker}
+    templates:
+      trackingIssued: ${SENDGRID_TEMPLATE_TRACKING_ISSUED:}
+      statusChanged: ${SENDGRID_TEMPLATE_STATUS_CHANGED:}
+      misrouted: ${SENDGRID_TEMPLATE_MISROUTED:}
+      exceptionRegistered: ${SENDGRID_TEMPLATE_EXCEPTION_REGISTERED:}
+      exceptionResolved: ${SENDGRID_TEMPLATE_EXCEPTION_RESOLVED:}
+      exceptionEscalation: ${SENDGRID_TEMPLATE_EXCEPTION_ESCALATION:}
+
+# 公開追跡照会の時限署名トークン（ADR-0013、US18、IT8 T1.6 で四半期ローテーション対応）
+# 本番環境は Heroku Config Vars / 環境変数で上書きする（32 バイト以上必須）。
+# previous-secret は四半期ローテーション期間中のみ設定し、過去 1 サイクルの secret で
+# 署名済みトークンの検証を維持する（最大トークン有効期間 30 日 + マージン経過後に削除）。
+# IT9 で AWS Secrets Manager + Lambda 自動回転へ切替予定（ADR-0021 起票予定）。
+tracking:
+  public-token:
+    secret: ${TRACKING_PUBLIC_TOKEN_SECRET:dev-only-tracking-public-token-secret-32+bytes}
+    previous-secret: ${TRACKING_PUBLIC_TOKEN_PREVIOUS_SECRET:}

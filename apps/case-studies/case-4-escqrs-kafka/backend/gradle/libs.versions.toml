@@ -1,0 +1,120 @@
+[versions]
+# Languages / Build
+java = "25"
+sonarqube = "6.0.1.5171"
+
+# Spring
+springBoot = "3.4.7"
+springDependencyManagement = "1.1.7"
+springCloud = "2024.0.1"
+
+# Axon Framework
+axon = "4.11.2"
+axonKafka = "4.11.1"
+
+# Data Access
+mybatisSpringBoot = "3.0.5"
+flyway = "10.20.1"
+postgresql = "42.7.4"
+h2 = "2.3.232"
+
+# Test
+junit = "5.11.4"
+assertj = "3.27.0"
+mockito = "5.14.2"
+testcontainers = "1.20.4"
+archunit = "1.4.2"
+
+# Distributed lock (IT8 T2.1 / ADR-0017)
+shedlock = "6.6.0"
+
+# Notification (IT8 T3.1 / ADR-0018)
+sendgrid = "4.10.3"
+wiremock = "3.13.1"
+
+# Cross-service ACL (IT8 T4.1 / ADR-0015 後半)
+resilience4j = "2.2.0"
+caffeine = "3.1.8"
+
+# JWT
+jjwt = "0.12.6"
+
+# Payment Gateway (IT9 A1 / ADR-0020)
+stripe = "29.0.0"
+
+# AWS SDK (IT9 A2 / ADR-0021、Secrets Manager 自動回転)
+awsSdk = "2.30.27"
+
+# Quality
+jacoco = "0.8.12"
+checkstyle = "10.20.2"
+spotbugs = "4.8.6"
+
+[libraries]
+# Spring Boot Starters
+spring-boot-starter = { module = "org.springframework.boot:spring-boot-starter", version.ref = "springBoot" }
+spring-boot-starter-web = { module = "org.springframework.boot:spring-boot-starter-web", version.ref = "springBoot" }
+spring-boot-starter-webflux = { module = "org.springframework.boot:spring-boot-starter-webflux", version.ref = "springBoot" }
+spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security", version.ref = "springBoot" }
+spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator", version.ref = "springBoot" }
+spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation", version.ref = "springBoot" }
+spring-boot-starter-jdbc = { module = "org.springframework.boot:spring-boot-starter-jdbc", version.ref = "springBoot" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test", version.ref = "springBoot" }
+spring-security-test = { module = "org.springframework.security:spring-security-test" }
+spring-boot-devtools = { module = "org.springframework.boot:spring-boot-devtools", version.ref = "springBoot" }
+
+# Spring Cloud Gateway (for gatewayms)
+spring-cloud-starter-gateway = { module = "org.springframework.cloud:spring-cloud-starter-gateway" }
+
+# Axon Framework
+axon-spring-boot-starter = { module = "org.axonframework:axon-spring-boot-starter", version.ref = "axon" }
+axon-test = { module = "org.axonframework:axon-test", version.ref = "axon" }
+axon-kafka-spring-boot-starter = { module = "org.axonframework.extensions.kafka:axon-kafka-spring-boot-starter", version.ref = "axonKafka" }
+
+# Data Access
+mybatis-spring-boot-starter = { module = "org.mybatis.spring.boot:mybatis-spring-boot-starter", version.ref = "mybatisSpringBoot" }
+mybatis-spring-boot-starter-test = { module = "org.mybatis.spring.boot:mybatis-spring-boot-starter-test", version.ref = "mybatisSpringBoot" }
+flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
+flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql", version.ref = "flyway" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+h2 = { module = "com.h2database:h2", version.ref = "h2" }
+
+# Test
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+mockito-junit-jupiter = { module = "org.mockito:mockito-junit-jupiter", version.ref = "mockito" }
+testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql", version.ref = "testcontainers" }
+testcontainers-kafka = { module = "org.testcontainers:kafka", version.ref = "testcontainers" }
+testcontainers-localstack = { module = "org.testcontainers:localstack", version.ref = "testcontainers" }
+archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
+
+# Distributed lock (IT8 T2.1 / ADR-0017)
+shedlock-spring = { module = "net.javacrumbs.shedlock:shedlock-spring", version.ref = "shedlock" }
+shedlock-provider-jdbc-template = { module = "net.javacrumbs.shedlock:shedlock-provider-jdbc-template", version.ref = "shedlock" }
+
+# Notification (IT8 T3.1 / ADR-0018)
+sendgrid-java = { module = "com.sendgrid:sendgrid-java", version.ref = "sendgrid" }
+wiremock = { module = "org.wiremock:wiremock-standalone", version.ref = "wiremock" }
+
+# Cross-service ACL (IT8 T4.1 / ADR-0015 後半)
+resilience4j-spring-boot3 = { module = "io.github.resilience4j:resilience4j-spring-boot3", version.ref = "resilience4j" }
+caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
+
+# JWT
+jjwt-api = { module = "io.jsonwebtoken:jjwt-api", version.ref = "jjwt" }
+jjwt-impl = { module = "io.jsonwebtoken:jjwt-impl", version.ref = "jjwt" }
+jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }
+
+# Payment Gateway (IT9 A1 / ADR-0020)
+stripe-java = { module = "com.stripe:stripe-java", version.ref = "stripe" }
+
+# AWS SDK (IT9 A2 / ADR-0021、Secrets Manager 自動回転)
+aws-sdk-secretsmanager = { module = "software.amazon.awssdk:secretsmanager", version.ref = "awsSdk" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "springBoot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "springDependencyManagement" }
+sonarqube = { id = "org.sonarqube", version.ref = "sonarqube" }

@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.billingms.infrastructure.repositories.mybatis.InvoiceSummaryMapper">
+
+    <resultMap id="invoiceSummaryResultMap" type="com.example.billingms.domain.projections.InvoiceSummary">
+        <id property="invoiceId" column="invoice_id"/>
+        <result property="bookingId" column="booking_id"/>
+        <result property="shipperId" column="shipper_id"/>
+        <result property="basicAmount" column="basic_amount"/>
+        <result property="discountAmount" column="discount_amount"/>
+        <result property="adjustmentAmount" column="adjustment_amount"/>
+        <result property="totalAmount" column="total_amount"/>
+        <result property="currency" column="currency"/>
+        <result property="billingStatus" column="billing_status"/>
+        <result property="invoiceNumber" column="invoice_number"/>
+        <result property="paymentDue" column="payment_due"/>
+        <result property="paidAt" column="paid_at"/>
+        <result property="cancellationReason" column="cancellation_reason"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="version" column="version"/>
+    </resultMap>
+
+    <insert id="insertInvoice">
+        INSERT INTO invoice (
+            invoice_id,
+            booking_id,
+            shipper_id,
+            basic_amount,
+            discount_amount,
+            adjustment_amount,
+            total_amount,
+            currency,
+            billing_status,
+            created_at,
+            updated_at,
+            version
+        ) VALUES (
+            #{invoiceId},
+            #{bookingId},
+            #{shipperId},
+            #{basicAmount},
+            0,
+            0,
+            #{basicAmount},
+            #{currency},
+            #{billingStatus},
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP,
+            0
+        )
+    </insert>
+
+    <update id="updateDiscount">
+        UPDATE invoice
+        SET discount_amount = #{discountAmount},
+            total_amount    = #{totalAmount},
+            updated_at      = CURRENT_TIMESTAMP,
+            version         = version + 1
+        WHERE invoice_id = #{invoiceId}
+    </update>
+
+    <update id="updateForIssued">
+        UPDATE invoice
+        SET invoice_number = #{invoiceNumber},
+            payment_due    = #{paymentDue},
+            billing_status = 'INVOICED',
+            updated_at     = CURRENT_TIMESTAMP,
+            version        = version + 1
+        WHERE invoice_id = #{invoiceId}
+    </update>
+
+    <update id="updateForPaid">
+        UPDATE invoice
+        SET paid_at        = #{paidAt},
+            billing_status = 'PAID',
+            updated_at     = CURRENT_TIMESTAMP,
+            version        = version + 1
+        WHERE invoice_id = #{invoiceId}
+    </update>
+
+    <update id="updateForOverdue">
+        UPDATE invoice
+        SET billing_status = 'OVERDUE',
+            updated_at     = CURRENT_TIMESTAMP,
+            version        = version + 1
+        WHERE invoice_id = #{invoiceId}
+    </update>
+
+    <update id="updateForPartiallyPaid">
+        UPDATE invoice
+        SET paid_so_far    = paid_so_far + #{paidAmount},
+            billing_status = 'PARTIALLY_PAID',
+            updated_at     = CURRENT_TIMESTAMP,
+            version        = version + 1
+        WHERE invoice_id = #{invoiceId}
+    </update>
+
+    <select id="findOverdueCandidates" resultMap="invoiceSummaryResultMap">
+        SELECT * FROM invoice
+        WHERE billing_status = 'INVOICED'
+          AND payment_due IS NOT NULL
+          AND payment_due &lt; #{now}
+        ORDER BY payment_due
+    </select>
+
+    <select id="findByStatus" resultMap="invoiceSummaryResultMap">
+        SELECT * FROM invoice
+        WHERE billing_status = #{billingStatus}
+        ORDER BY updated_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByStatus" resultType="long">
+        SELECT COUNT(*) FROM invoice
+        WHERE billing_status = #{billingStatus}
+    </select>
+
+    <select id="findByInvoiceId" resultMap="invoiceSummaryResultMap">
+        SELECT * FROM invoice WHERE invoice_id = #{invoiceId}
+    </select>
+
+    <select id="findByBookingId" resultMap="invoiceSummaryResultMap">
+        SELECT * FROM invoice WHERE booking_id = #{bookingId}
+    </select>
+
+    <select id="findAll" resultMap="invoiceSummaryResultMap">
+        SELECT * FROM invoice
+        ORDER BY updated_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM invoice
+    </select>
+
+    <!--
+        当日採番済の invoice_number 末尾 4 桁の最大値（US23 / T4.2）。
+        invoice_number 形式は INV-YYYYMMDD-XXXX で固定長 4 桁。
+        H2 / PostgreSQL 両対応のため SUBSTRING + CAST を使う。
+        当日採番なしの場合は NULL を返す。
+    -->
+    <select id="findMaxInvoiceNumberSequenceForDate" resultType="java.lang.Integer">
+        SELECT MAX(CAST(SUBSTRING(invoice_number, 14, 4) AS INTEGER))
+        FROM invoice
+        WHERE invoice_number IS NOT NULL
+          AND SUBSTRING(invoice_number, 5, 8) = #{yyyymmdd}
+    </select>
+
+</mapper>
