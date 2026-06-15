@@ -1,0 +1,14 @@
+FROM --platform=$TARGETPLATFORM golang:1.21.6 AS build
+ARG TARGETARCH
+
+WORKDIR /go/src/github.com/gihyodocker/echo
+COPY . .
+
+RUN GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -o bin/echo main.go
+
+FROM gcr.io/distroless/base-debian11:latest
+LABEL org.opencontainers.image.source=https://github.com/gihyodocker/echo
+
+COPY --from=build /go/src/github.com/gihyodocker/echo/bin/echo /usr/local/bin/
+
+CMD ["echo"]

@@ -1,0 +1,4 @@
+# コンテナ内（Linux）で実行するスクリプトは常に LF を強制する
+*.sh text eol=lf
+migrate.sh text eol=lf
+task.sh text eol=lf

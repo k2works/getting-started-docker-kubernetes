@@ -1,0 +1,12 @@
+services:
+  echo:
+    build:
+      context: .
+      dockerfile: Dockerfile.slim
+
+  nginx:
+    build: ./nginx 
+    depends_on:
+      - echo 
+    ports:
+      - "9000:80"

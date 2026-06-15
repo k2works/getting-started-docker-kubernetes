@@ -1,0 +1,12 @@
+# api-config.yaml のテンプレート。
+# hack/setup-local.sh が本ファイルを基に api-config.yaml を生成します。
+# Docker Compose では host を compose のサービス名 "mysql" にします。
+# Kubernetes では Secret として登録し、host を Service 名 "mysql" にします。
+database:
+  host: mysql
+  username: taskapp_user
+  password: taskapp_pass
+  dbname: taskapp
+  maxIdleConns: 5
+  maxOpenConns: 10
+  connMaxLifetime: 1h
