@@ -38,6 +38,18 @@ Docker と Kubernetes を使って、コンテナによるアプリケーショ�
 | [第 11 章 コンテナにおける継続的デリバリー](11-continuous-delivery.md) | Flux、Argo CD、PipeCD |
 | [第 12 章 コンテナのさまざまな活用方法](12-container-use-cases.md) | 開発環境統一、CLI、負荷テスト |
 
+### 第 5 部: 国際貨物輸送システムのケーススタディ
+
+同一ドメイン（Cargo Tracker）の 4 アーキテクチャを題材に、Compose・Kustomize・Helm を実装・検証して比較します。
+
+| 章 | テーマ |
+|----|--------|
+| [第 13 章 モノリスのデプロイ](13-case-monolith-compose-vs-kustomize.md) | Docker Compose 対 Kustomize |
+| [第 14 章 イベント駆動マイクロサービスのデプロイ](14-case-event-driven-kustomize-vs-helm.md) | Kustomize 対 Helm |
+| [第 15 章 ES/CQRS マイクロサービス（Axon）のデプロイ](15-case-escqrs-axon-kustomize-vs-helm.md) | Kustomize 対 Helm |
+| [第 16 章 ES/CQRS マイクロサービス（Kafka）のデプロイ](16-case-escqrs-kafka-kustomize-vs-helm.md) | Kustomize 対 Helm |
+| [第 17 章 ケーススタディ実装比較まとめ](17-case-comparison-summary.md) | 全アーキテクチャ × デプロイ手段の総括 |
+
 ### 付録
 
 | 付録 | テーマ |
