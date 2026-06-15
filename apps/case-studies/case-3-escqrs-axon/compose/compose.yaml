@@ -1,6 +1,9 @@
 # 国際貨物輸送システム（ES/CQRS Axon 版）の Docker Compose 構成。
 #
-# 機密は .env で注入する（初回: cp .env.example .env）。
+# パスワード・JWT は environment に直書きせず、ファイルベースの secrets で注入する
+# （第 4 章のタスクアプリと同じ方式）。初回のみ:
+#   cp secrets/db_password.example secrets/db_password
+#   cp secrets/jwt_secret.example  secrets/jwt_secret
 # サービスイメージは事前にビルドしておくこと（README 参照）。
 services:
   axonserver:
@@ -27,16 +30,18 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      POSTGRES_USER: cargo
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
       POSTGRES_MULTIPLE_DATABASES: >-
         auth_db,booking_read_db,routing_read_db,tracking_read_db,handling_read_db,billing_read_db
+    secrets:
+      - db_password
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ../ops/postgres/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U cargo -d postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -48,15 +53,23 @@ services:
       context: ../backend
       dockerfile: authms/Dockerfile
     depends_on:
+
       postgres:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: local-docker
+
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_db
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_ISSUER: ${JWT_ISSUER:-case-study-cargo-tracker}
+      SPRING_DATASOURCE_USERNAME: cargo
+      JWT_ISSUER: case-study-cargo-tracker
+    # 機密は secrets のファイルから読み込んで起動する（第 4 章スタイル）
+    entrypoint:
+      - "sh"
+      - "-c"
+      - 'export SPRING_DATASOURCE_PASSWORD="$$(cat /run/secrets/db_password)"; export JWT_SECRET="$$(cat /run/secrets/jwt_secret)"; exec java -jar /app/authms.jar'
+    secrets:
+      - db_password
+      - jwt_secret
 
   bookingms:
     image: cargo3-bookingms:0.0.1
@@ -72,8 +85,15 @@ services:
       SPRING_PROFILES_ACTIVE: local-docker
       AXON_AXONSERVER_SERVERS: axonserver:8124
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/booking_read_db
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATASOURCE_USERNAME: cargo
+
+    # 機密は secrets のファイルから読み込んで起動する（第 4 章スタイル）
+    entrypoint:
+      - "sh"
+      - "-c"
+      - 'export SPRING_DATASOURCE_PASSWORD="$$(cat /run/secrets/db_password)"; exec java -jar /app/bookingms.jar'
+    secrets:
+      - db_password
 
   routingms:
     image: cargo3-routingms:0.0.1
@@ -89,8 +109,15 @@ services:
       SPRING_PROFILES_ACTIVE: local-docker
       AXON_AXONSERVER_SERVERS: axonserver:8124
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/routing_read_db
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATASOURCE_USERNAME: cargo
+
+    # 機密は secrets のファイルから読み込んで起動する（第 4 章スタイル）
+    entrypoint:
+      - "sh"
+      - "-c"
+      - 'export SPRING_DATASOURCE_PASSWORD="$$(cat /run/secrets/db_password)"; exec java -jar /app/routingms.jar'
+    secrets:
+      - db_password
 
   handlingms:
     image: cargo3-handlingms:0.0.1
@@ -106,8 +133,15 @@ services:
       SPRING_PROFILES_ACTIVE: local-docker
       AXON_AXONSERVER_SERVERS: axonserver:8124
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/handling_read_db
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATASOURCE_USERNAME: cargo
+
+    # 機密は secrets のファイルから読み込んで起動する（第 4 章スタイル）
+    entrypoint:
+      - "sh"
+      - "-c"
+      - 'export SPRING_DATASOURCE_PASSWORD="$$(cat /run/secrets/db_password)"; exec java -jar /app/handlingms.jar'
+    secrets:
+      - db_password
 
   trackingms:
     image: cargo3-trackingms:0.0.1
@@ -123,9 +157,16 @@ services:
       SPRING_PROFILES_ACTIVE: local-docker
       AXON_AXONSERVER_SERVERS: axonserver:8124
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tracking_read_db
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
+      SPRING_DATASOURCE_USERNAME: cargo
+      JWT_ISSUER: case-study-cargo-tracker
+    # 機密は secrets のファイルから読み込んで起動する（第 4 章スタイル）
+    entrypoint:
+      - "sh"
+      - "-c"
+      - 'export SPRING_DATASOURCE_PASSWORD="$$(cat /run/secrets/db_password)"; export JWT_SECRET="$$(cat /run/secrets/jwt_secret)"; exec java -jar /app/trackingms.jar'
+    secrets:
+      - db_password
+      - jwt_secret
 
   billingms:
     image: cargo3-billingms:0.0.1
@@ -141,9 +182,16 @@ services:
       SPRING_PROFILES_ACTIVE: local-docker
       AXON_AXONSERVER_SERVERS: axonserver:8124
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/billing_read_db
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
+      SPRING_DATASOURCE_USERNAME: cargo
+      JWT_ISSUER: case-study-cargo-tracker
+    # 機密は secrets のファイルから読み込んで起動する（第 4 章スタイル）
+    entrypoint:
+      - "sh"
+      - "-c"
+      - 'export SPRING_DATASOURCE_PASSWORD="$$(cat /run/secrets/db_password)"; export JWT_SECRET="$$(cat /run/secrets/jwt_secret)"; exec java -jar /app/billingms.jar'
+    secrets:
+      - db_password
+      - jwt_secret
 
   gatewayms:
     image: cargo3-gatewayms:0.0.1
@@ -165,8 +213,13 @@ services:
       HANDLINGMS_URL: http://handlingms:8085
       TRACKINGMS_URL: http://trackingms:8086
       BILLINGMS_URL: http://billingms:8087
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_ISSUER: ${JWT_ISSUER:-case-study-cargo-tracker}
+      JWT_ISSUER: case-study-cargo-tracker
+    entrypoint:
+      - "sh"
+      - "-c"
+      - 'export JWT_SECRET="$$(cat /run/secrets/jwt_secret)"; exec java -jar /app/gatewayms.jar'
+    secrets:
+      - jwt_secret
     ports:
       - "9081:8080"
 
@@ -181,6 +234,12 @@ services:
       GATEWAY_URL: http://gatewayms:8080
     ports:
       - "9091:8080"
+
+secrets:
+  db_password:
+    file: ./secrets/db_password
+  jwt_secret:
+    file: ./secrets/jwt_secret
 
 volumes:
   axonserver-data:

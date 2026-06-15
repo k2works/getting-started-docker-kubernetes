@@ -1,28 +1,31 @@
 # 国際貨物輸送システム（イベント駆動マイクロサービス版）の Docker Compose 構成。
 #
-# 機密は .env で注入する（初回: cp .env.example .env）。
+# パスワードは environment に直書きせず、ファイルベースの secrets で注入する
+# （第 4 章のタスクアプリと同じ方式）。初回のみ:
+#   cp secrets/db_password.example secrets/db_password
 # サービスイメージは事前にビルドしておくこと（README 参照）。
 services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_USER}
+      POSTGRES_USER: cargo_tracker
+      POSTGRES_DB: cargo_tracker
+      # パスワードはファイルで渡す（実体は secrets で注入）
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ../ops/postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U cargo_tracker"]
       interval: 5s
       timeout: 5s
       retries: 10
 
   rabbitmq:
     image: rabbitmq:3.13-management
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    # guest/guest は RabbitMQ の既定アカウント（ローカル検証用）
     ports:
       - "15672:15672"
     healthcheck:
@@ -44,9 +47,15 @@ services:
       SPRING_PROFILES_ACTIVE: local-prod
       PORT: "8081"
       DB_URL: jdbc:postgresql://postgres:5432/auth_db
-      DB_USERNAME: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_USERNAME: cargo_tracker
 
+    # DB_PASSWORD は secrets のファイルから読み込んで起動する（第 4 章スタイル）
+    command:
+      - "sh"
+      - "-c"
+      - 'export DB_PASSWORD="$$(cat /run/secrets/db_password)" && exec java $${JAVA_OPTS} -jar /app/app.jar'
+    secrets:
+      - db_password
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8081/actuator/health || exit 1"]
       interval: 15s
@@ -68,12 +77,18 @@ services:
       SPRING_PROFILES_ACTIVE: local-prod
       PORT: "8082"
       DB_URL: jdbc:postgresql://postgres:5432/booking_db
-      DB_USERNAME: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_USERNAME: cargo_tracker
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: "5672"
-      RABBITMQ_USERNAME: ${RABBITMQ_USER}
-      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+    # DB_PASSWORD は secrets のファイルから読み込んで起動する（第 4 章スタイル）
+    command:
+      - "sh"
+      - "-c"
+      - 'export DB_PASSWORD="$$(cat /run/secrets/db_password)" && exec java $${JAVA_OPTS} -jar /app/app.jar'
+    secrets:
+      - db_password
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
       interval: 15s
@@ -94,9 +109,15 @@ services:
       SPRING_PROFILES_ACTIVE: local-prod
       PORT: "8083"
       DB_URL: jdbc:postgresql://postgres:5432/routing_db
-      DB_USERNAME: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_USERNAME: cargo_tracker
 
+    # DB_PASSWORD は secrets のファイルから読み込んで起動する（第 4 章スタイル）
+    command:
+      - "sh"
+      - "-c"
+      - 'export DB_PASSWORD="$$(cat /run/secrets/db_password)" && exec java $${JAVA_OPTS} -jar /app/app.jar'
+    secrets:
+      - db_password
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
       interval: 15s
@@ -118,12 +139,18 @@ services:
       SPRING_PROFILES_ACTIVE: local-prod
       PORT: "8084"
       DB_URL: jdbc:postgresql://postgres:5432/tracking_db
-      DB_USERNAME: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_USERNAME: cargo_tracker
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: "5672"
-      RABBITMQ_USERNAME: ${RABBITMQ_USER}
-      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+    # DB_PASSWORD は secrets のファイルから読み込んで起動する（第 4 章スタイル）
+    command:
+      - "sh"
+      - "-c"
+      - 'export DB_PASSWORD="$$(cat /run/secrets/db_password)" && exec java $${JAVA_OPTS} -jar /app/app.jar'
+    secrets:
+      - db_password
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8084/actuator/health || exit 1"]
       interval: 15s
@@ -144,9 +171,15 @@ services:
       SPRING_PROFILES_ACTIVE: local-prod
       PORT: "8085"
       DB_URL: jdbc:postgresql://postgres:5432/handling_db
-      DB_USERNAME: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_USERNAME: cargo_tracker
 
+    # DB_PASSWORD は secrets のファイルから読み込んで起動する（第 4 章スタイル）
+    command:
+      - "sh"
+      - "-c"
+      - 'export DB_PASSWORD="$$(cat /run/secrets/db_password)" && exec java $${JAVA_OPTS} -jar /app/app.jar'
+    secrets:
+      - db_password
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8085/actuator/health || exit 1"]
       interval: 15s
@@ -167,9 +200,15 @@ services:
       SPRING_PROFILES_ACTIVE: local-prod
       PORT: "8086"
       DB_URL: jdbc:postgresql://postgres:5432/billing_db
-      DB_USERNAME: ${POSTGRES_USER}
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_USERNAME: cargo_tracker
 
+    # DB_PASSWORD は secrets のファイルから読み込んで起動する（第 4 章スタイル）
+    command:
+      - "sh"
+      - "-c"
+      - 'export DB_PASSWORD="$$(cat /run/secrets/db_password)" && exec java $${JAVA_OPTS} -jar /app/app.jar'
+    secrets:
+      - db_password
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8086/actuator/health || exit 1"]
       interval: 15s
@@ -217,6 +256,10 @@ services:
       API_GATEWAY_URL: http://gatewayms:8080
     ports:
       - "9090:8080"
+
+secrets:
+  db_password:
+    file: ./secrets/db_password
 
 volumes:
   postgres_data:

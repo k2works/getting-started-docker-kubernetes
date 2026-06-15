@@ -37,11 +37,12 @@ docker build -t cargo-tracker/frontendms:latest frontend
 
 ## Docker Compose で起動
 
-Kubernetes を使わず単一ホストで全体を起動する場合は Docker Compose を使います。機密は `.env` で注入します。
+Kubernetes を使わず単一ホストで全体を起動する場合は Docker Compose を使います。パスワード・JWT はファイルベースの `secrets` で注入します（第 4 章スタイル）。
 
 ```bash
 cd apps/case-studies/case-4-escqrs-kafka/compose
-cp .env.example .env        # 初回のみ
+cp secrets/db_password.example secrets/db_password   # 初回のみ
+cp secrets/jwt_secret.example  secrets/jwt_secret     # 初回のみ
 docker compose up -d
 curl http://localhost:9082/actuator/health        # gateway => {"status":"UP"}
 curl http://localhost:9082/api/v1/bookings        # read エンドポイント => 200

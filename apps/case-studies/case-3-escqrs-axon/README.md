@@ -41,11 +41,12 @@ cd ../frontend && docker build -t cargo3-frontend:0.0.1 .
 
 ## Docker Compose で起動
 
-Kubernetes を使わず単一ホストで全体を起動する場合は Docker Compose を使います。機密は `.env` で注入します。
+Kubernetes を使わず単一ホストで全体を起動する場合は Docker Compose を使います。パスワード・JWT はファイルベースの `secrets` で注入します（第 4 章スタイル）。
 
 ```bash
 cd apps/case-studies/case-3-escqrs-axon/compose
-cp .env.example .env        # 初回のみ
+cp secrets/db_password.example secrets/db_password   # 初回のみ
+cp secrets/jwt_secret.example  secrets/jwt_secret     # 初回のみ
 docker compose up -d
 curl http://localhost:8024/actuator/health   # Axon Server
 curl http://localhost:9081/actuator/health   # gateway => {"status":"UP"}

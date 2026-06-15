@@ -1,2 +1,2 @@
-# 実際の機密は .env.example をコピーして作成（コミットしない）
-.env
+# 実際の機密はコミットしない（.example をコピーして作成）
+secrets/db_password
