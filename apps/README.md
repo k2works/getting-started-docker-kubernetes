@@ -10,6 +10,7 @@
 | [`taskapp/`](taskapp/) | 複数コンテナ構成のタスク管理アプリ（web / api / mysql / migrator / nginx）。Compose と Kubernetes マニフェストを含む | 第 3・4・6・9 章 |
 | [`container-kit/`](container-kit/) | 補助コンテナ集（debug / simple-nginx-proxy / time-limit-job） | 第 7・12 章、付録 C |
 | [`image-bootstrap/`](image-bootstrap/) | distroless + 非 root + Trivy を用いたセキュアイメージのサンプル | 第 10 章、付録 C |
+| [`cd/`](cd/) | 継続的デリバリー（GitOps）のサンプル。Argo CD の `Application`、echo-bootstrap、argocd-example-apps | 第 11 章 |
 
 ## 前提ツール
 
@@ -88,6 +89,21 @@ docker run --rm -p 8080:8080 image-bootstrap:local
 curl http://localhost:8080/        # => I'm image bootstrap
 ```
 
+### cd — GitOps（第 11 章）
+
+```bash
+# Argo CD を導入
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+# Application を適用すると Git から pull してデプロイされる
+kubectl apply -f apps/cd/application-guestbook.yaml
+kubectl -n argocd get application guestbook   # Synced / Healthy になる
+kubectl -n guestbook get deploy,pods
+```
+
+詳細は [`cd/README.md`](cd/README.md) を参照してください。
+
 ## 動作検証結果
 
 以下は Docker Desktop（Docker 29.5.3 / 内蔵 Kubernetes）で実施した検証結果です。
@@ -107,6 +123,8 @@ curl http://localhost:8080/        # => I'm image bootstrap
 | container-kit | debug / simple-nginx-proxy / time-limit-job ビルド | OK |
 | container-kit | time-limit-job 実行 | OK（`EXECUTION_SECONDS=3` で 3 回ループ後終了） |
 | image-bootstrap | distroless 非 root イメージのビルド・実行 | OK（`I'm image bootstrap`、46.9MB） |
+| cd | Argo CD 導入 → `Application` で GitOps 同期 | OK（Synced/Healthy、guestbook デプロイ、HTTP 200） |
+| cd | self-heal（Deployment 手動削除 → Git から自動復元） | OK（OutOfSync 検知後に再同期し復元） |
 
 ### 検証時に修正した点（オリジナルからの変更）
 
