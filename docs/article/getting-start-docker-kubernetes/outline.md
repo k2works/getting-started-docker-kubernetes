@@ -174,14 +174,14 @@ docs/article/getting-start-docker-kubernetes/
 
 ### apps/ への実装方針
 
-ケーススタディのデプロイ成果物は `apps/case-studies/` 配下に配置する。アプリ本体のソースは肥大なため、必要に応じて参考ソースからビルドするか、ビルド済みイメージを参照する。
+ケーススタディのデプロイ成果物とアプリ本体のソースは `apps/case-studies/` 配下に配置する。`tmp/` は Git 管理対象外でチェックアウトし直すと失われ再現できないため、ビルドに必要なソースも `apps/` に同梱する（ビルド成果物・`node_modules`・`.gradle` 等は除外）。
 
 ```
 apps/case-studies/
-├── case-1-monolith/        # 第 13 章: compose/ と k8s/kustomize/
-├── case-2-event-driven/    # 第 14 章: k8s/kustomize/ と helm/
-├── case-3-escqrs-axon/     # 第 15 章: k8s/kustomize/ と helm/
-└── case-4-escqrs-kafka/    # 第 16 章: k8s/kustomize/ と helm/（tmp/case-4 の ops を基に）
+├── case-1-monolith/        # 第 13 章: cargo-tracker/（ソース）+ compose/ + k8s/kustomize/
+├── case-2-event-driven/    # 第 14 章: ソース + k8s/kustomize/ + helm/
+├── case-3-escqrs-axon/     # 第 15 章: ソース + k8s/kustomize/ + helm/
+└── case-4-escqrs-kafka/    # 第 16 章: ソース + k8s/kustomize/ + helm/（tmp/case-4 の ops を基に）
 ```
 
 ### 実装・検証・執筆のワークフロー

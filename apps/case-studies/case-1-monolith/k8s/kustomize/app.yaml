@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cargo-tracker
+  labels:
+    app.kubernetes.io/name: cargo-tracker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cargo-tracker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cargo-tracker
+    spec:
+      containers:
+        - name: cargo-tracker
+          image: cargo-tracker:0.0.1
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: product
+            - name: DB_URL
+              value: jdbc:postgresql://postgres:5432/cargo_tracker
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: POSTGRES_PASSWORD
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cargo-tracker
+  labels:
+    app.kubernetes.io/name: cargo-tracker
+spec:
+  selector:
+    app.kubernetes.io/name: cargo-tracker
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
