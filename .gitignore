@@ -1,0 +1,65 @@
+# ===== Node.js =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+*.tsbuildinfo
+
+# ===== 環境変数 =====
+# 実体ファイルは無視し、テンプレートと vault はコミットする
+.env
+.env.*.local
+.env.local
+!.env.example
+!.env.vault
+
+# ===== ビルド・出力物 =====
+dist/
+build/
+out/
+coverage/
+.cache/
+
+# ===== mkdocs（ドキュメント生成）=====
+site/
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+
+# ===== Terraform / IaC =====
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+*.tfvars
+!*.tfvars.example
+
+# ===== Nix =====
+result
+result-*
+.direnv/
+
+# ===== IDE / エディタ =====
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# ===== OS 生成ファイル =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== ログ・一時ファイル =====
+*.log
+tmp/
+temp/
