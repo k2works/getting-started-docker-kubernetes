@@ -10,8 +10,9 @@
 
 import path from 'path';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
-import { execSync } from 'child_process';
+import { execSync, spawn } from 'child_process';
 import { fileURLToPath } from 'url';
+import { openUrl } from './shared.js';
 
 // ============================================
 // 設定
@@ -37,6 +38,7 @@ const APPS = [
     namespace: 'echo',
     createNs: true,
     endpoints: ['kubectl -n echo port-forward svc/echo 18080:80 → http://localhost:18080/'],
+    open: { svc: 'echo', port: 80, path: '/' },
   },
   {
     name: 'taskapp',
@@ -54,6 +56,7 @@ const APPS = [
       },
     ],
     endpoints: ['kubectl -n taskapp port-forward svc/web 18080:80 → http://localhost:18080/'],
+    open: { svc: 'web', port: 80, path: '/' },
   },
   {
     name: 'case1',
@@ -61,6 +64,7 @@ const APPS = [
     kustomize: 'apps/case-studies/case-1-monolith/k8s/kustomize',
     namespace: 'cargo-monolith',
     endpoints: ['kubectl -n cargo-monolith port-forward svc/cargo-tracker 18080:80 → /actuator/health'],
+    open: { svc: 'cargo-tracker', port: 80, path: '/' },
   },
   {
     name: 'case2',
@@ -69,6 +73,7 @@ const APPS = [
     namespace: 'cargo-event',
     helm: { chart: 'apps/case-studies/case-2-event-driven/helm/cargo-event', release: 'cargo-event' },
     endpoints: ['kubectl -n cargo-event port-forward svc/gatewayms 18080:8080 → /actuator/health'],
+    open: { svc: 'frontend', port: 80, path: '/' },
   },
   {
     name: 'case3',
@@ -77,6 +82,7 @@ const APPS = [
     namespace: 'cargo-axon',
     helm: { chart: 'apps/case-studies/case-3-escqrs-axon/helm/cargo-axon', release: 'cargo-axon' },
     endpoints: ['kubectl -n cargo-axon port-forward svc/gatewayms 18080:8080 → /actuator/health'],
+    open: { svc: 'frontend', port: 80, path: '/' },
   },
   {
     name: 'case4',
@@ -85,6 +91,7 @@ const APPS = [
     namespace: 'cargo-tracker',
     helm: { chart: 'apps/case-studies/case-4-escqrs-kafka/helm/cargo-tracker', release: 'cargo' },
     endpoints: ['kubectl -n cargo-tracker port-forward svc/gatewayms 18080:8080 → /actuator/health'],
+    open: { svc: 'frontendms', port: 80, path: '/' },
   },
 ];
 
@@ -182,6 +189,33 @@ export default function (gulp) {
       done();
     });
 
+    // ブラウザで開く（port-forward しながらブラウザを起動。Ctrl+C で終了）
+    if (app.open) {
+      gulp.task(`k8s:${app.name}:open`, (done) => {
+        requireCluster();
+        const local = 18080;
+        const url = `http://localhost:${local}${app.open.path}`;
+        console.log(`[${app.name}] port-forward 中: ${url}（終了は Ctrl+C）`);
+        const pf = spawn(
+          'kubectl',
+          ['-n', app.namespace, 'port-forward', `svc/${app.open.svc}`, `${local}:${app.open.port}`],
+          { stdio: 'inherit' }
+        );
+        // port-forward の確立を待ってからブラウザを開く
+        const timer = setTimeout(() => {
+          try {
+            openUrl(url);
+          } catch {
+            console.log(`ブラウザを開けませんでした。${url} を手動で開いてください。`);
+          }
+        }, 3000);
+        pf.on('exit', () => {
+          clearTimeout(timer);
+          done();
+        });
+      });
+    }
+
     // ビルド結果（適用前の確認）
     gulp.task(`k8s:${app.name}:build`, (done) => {
       ensureK8sSecrets(app);
@@ -221,6 +255,7 @@ ${lines}
     k8s:<name>:apply      Kustomize で適用
     k8s:<name>:delete     Kustomize リソースを削除
     k8s:<name>:status     Pod / Service / Ingress を表示
+    k8s:<name>:open       port-forward してブラウザで開く（Ctrl+C で終了）
     k8s:<name>:build      kubectl kustomize で生成結果を確認
     k8s:<name>:helm       Helm でデプロイ（チャートを持つアプリのみ）
     k8s:<name>:helm:delete  Helm リリースを削除
