@@ -1,0 +1,47 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: gatewayms
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: authms
+              uri: ${AUTHMS_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/v1/auth/**
+            - id: bookingms
+              uri: ${BOOKINGMS_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/booking/**
+            - id: routingms
+              uri: ${ROUTINGMS_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/routing/**
+            - id: trackingms
+              uri: ${TRACKINGMS_URL:http://localhost:8084}
+              predicates:
+                - Path=/api/tracking/**
+            - id: handlingms
+              # NOTE: 現状 HandlingActivityController は trackingms に同居している。
+              # handlingms (8085) はスケルトンのみで未実装のため、暫定的に trackingms に向ける。
+              # handlingms 独立後は HANDLINGMS_URL の既定値を 8085 に戻す。
+              uri: ${HANDLINGMS_URL:http://localhost:8084}
+              predicates:
+                - Path=/api/handling/**
+            - id: billingms
+              uri: ${BILLINGMS_URL:http://localhost:8086}
+              predicates:
+                - Path=/api/billing/**
+  devtools:
+    restart:
+      enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

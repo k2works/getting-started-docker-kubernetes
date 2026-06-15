@@ -1,0 +1,6 @@
+# Gradle ビルド成果物
+backend/.gradle/
+backend/**/build/
+# フロントエンド
+frontend/node_modules/
+frontend/dist/

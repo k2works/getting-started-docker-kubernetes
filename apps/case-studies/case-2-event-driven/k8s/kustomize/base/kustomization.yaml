@@ -1,0 +1,42 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cargo-event
+
+resources:
+  - namespace.yaml
+  - secret.yaml
+  - postgres.yaml
+  - rabbitmq.yaml
+  - authms.yaml
+  - bookingms.yaml
+  - routingms.yaml
+  - trackingms.yaml
+  - handlingms.yaml
+  - billingms.yaml
+  - gatewayms.yaml
+  - frontend.yaml
+  - ingress.yaml
+
+configMapGenerator:
+  - name: postgres-init
+    files:
+      - init-databases.sql=init-databases.sql
+
+images:
+  - name: cargo2-authms
+    newTag: 0.0.1
+  - name: cargo2-bookingms
+    newTag: 0.0.1
+  - name: cargo2-routingms
+    newTag: 0.0.1
+  - name: cargo2-trackingms
+    newTag: 0.0.1
+  - name: cargo2-handlingms
+    newTag: 0.0.1
+  - name: cargo2-billingms
+    newTag: 0.0.1
+  - name: cargo2-gatewayms
+    newTag: 0.0.1
+  - name: cargo2-frontend
+    newTag: 0.0.1

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.bookingms.infrastructure.repositories.CargoMapper">
+
+    <!-- ResultMap: cargo -->
+    <resultMap id="CargoRecordMap" type="com.example.bookingms.infrastructure.repositories.CargoRecord">
+        <id     property="id"                       column="id"/>
+        <result property="bookingId"                column="booking_id"/>
+        <result property="shipperId"                column="shipper_id"/>
+        <result property="bookingStatus"            column="booking_status"/>
+        <result property="transportStatus"          column="transport_status"/>
+        <result property="routingStatus"            column="routing_status"/>
+        <result property="cargoType"                column="cargo_type"/>
+        <result property="weightKg"                 column="weight_kg"/>
+        <result property="specOriginUnlocode"       column="spec_origin_unlocode"/>
+        <result property="specDestinationUnlocode"  column="spec_destination_unlocode"/>
+        <result property="specArrivalDeadline"      column="spec_arrival_deadline"/>
+        <result property="bookingAmountValue"       column="booking_amount_value"/>
+        <result property="bookingAmountCurrency"    column="booking_amount_currency"/>
+        <result property="createdAt"                column="created_at"/>
+        <result property="updatedAt"                column="updated_at"/>
+        <result property="hazmatUnCode"             column="hazmat_un_code"/>
+        <result property="hazmatHazardClass"        column="hazmat_hazard_class"/>
+        <result property="hazmatPackingGroup"       column="hazmat_packing_group"/>
+        <result property="tempMinCelsius"           column="temp_min_celsius"/>
+        <result property="tempMaxCelsius"           column="temp_max_celsius"/>
+        <result property="tempUnit"                 column="temp_unit"/>
+        <result property="trackingNumber"           column="tracking_number"/>
+    </resultMap>
+
+    <!-- INSERT cargo -->
+    <insert id="insertCargo" parameterType="com.example.bookingms.infrastructure.repositories.CargoRecord"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO cargo (
+            booking_id, shipper_id, booking_status, transport_status, routing_status,
+            cargo_type, weight_kg, spec_origin_unlocode, spec_destination_unlocode,
+            spec_arrival_deadline, booking_amount_value, booking_amount_currency,
+            hazmat_un_code, hazmat_hazard_class, hazmat_packing_group,
+            temp_min_celsius, temp_max_celsius, temp_unit,
+            created_at, updated_at
+        ) VALUES (
+            #{bookingId}, #{shipperId}, #{bookingStatus}, #{transportStatus}, #{routingStatus},
+            #{cargoType}, #{weightKg}, #{specOriginUnlocode}, #{specDestinationUnlocode},
+            #{specArrivalDeadline}, #{bookingAmountValue}, #{bookingAmountCurrency},
+            #{hazmatUnCode}, #{hazmatHazardClass}, #{hazmatPackingGroup},
+            #{tempMinCelsius}, #{tempMaxCelsius}, #{tempUnit},
+            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        )
+    </insert>
+
+    <!-- SELECT cargo by booking_id -->
+    <select id="findByBookingId" resultMap="CargoRecordMap">
+        SELECT id, booking_id, shipper_id, booking_status, transport_status, routing_status,
+               cargo_type, weight_kg, spec_origin_unlocode, spec_destination_unlocode,
+               spec_arrival_deadline, booking_amount_value, booking_amount_currency,
+               hazmat_un_code, hazmat_hazard_class, hazmat_packing_group,
+               temp_min_celsius, temp_max_celsius, temp_unit,
+               tracking_number,
+               created_at, updated_at
+        FROM cargo
+        WHERE booking_id = #{bookingId}
+    </select>
+
+    <!-- SELECT all cargos -->
+    <select id="findAll" resultMap="CargoRecordMap">
+        SELECT id, booking_id, shipper_id, booking_status, transport_status, routing_status,
+               cargo_type, weight_kg, spec_origin_unlocode, spec_destination_unlocode,
+               spec_arrival_deadline, booking_amount_value, booking_amount_currency,
+               hazmat_un_code, hazmat_hazard_class, hazmat_packing_group,
+               temp_min_celsius, temp_max_celsius, temp_unit,
+               tracking_number,
+               created_at, updated_at
+        FROM cargo
+        ORDER BY id ASC
+    </select>
+
+    <!-- UPDATE cargo status and routing_status -->
+    <update id="updateCargo" parameterType="com.example.bookingms.infrastructure.repositories.CargoRecord">
+        UPDATE cargo
+        SET booking_status  = #{bookingStatus},
+            routing_status  = #{routingStatus},
+            tracking_number = #{trackingNumber},
+            updated_at      = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+</mapper>

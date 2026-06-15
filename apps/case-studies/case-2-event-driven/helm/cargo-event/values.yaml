@@ -1,0 +1,54 @@
+# 共通設定
+namespace: cargo-event
+imageTag: "0.0.1"
+imagePullPolicy: IfNotPresent
+
+# DB 認証（開発・ローカル検証用。本番では --set / -f で上書きすること）
+db:
+  username: cargo_tracker
+  password: cargo_tracker
+
+# RabbitMQ 認証
+rabbitmq:
+  username: guest
+  password: guest
+
+# バックエンドマイクロサービス定義（テンプレートでループ展開）
+services:
+  - name: authms
+    port: 8081
+    database: auth_db
+    rabbit: false
+  - name: bookingms
+    port: 8082
+    database: booking_db
+    rabbit: true
+  - name: routingms
+    port: 8083
+    database: routing_db
+    rabbit: false
+  - name: trackingms
+    port: 8084
+    database: tracking_db
+    rabbit: true
+  - name: handlingms
+    port: 8085
+    database: handling_db
+    rabbit: false
+  - name: billingms
+    port: 8086
+    database: billing_db
+    rabbit: false
+
+# ゲートウェイ（ルーティング先はサービス名で解決）
+gateway:
+  name: gatewayms
+  port: 8080
+
+# フロントエンド
+frontend:
+  name: frontend
+  port: 8080
+
+ingress:
+  host: cargo-event.local
