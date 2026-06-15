@@ -35,6 +35,20 @@ done
 docker build -t cargo-tracker/frontendms:latest frontend
 ```
 
+## Docker Compose で起動
+
+Kubernetes を使わず単一ホストで全体を起動する場合は Docker Compose を使います。機密は `.env` で注入します。
+
+```bash
+cd apps/case-studies/case-4-escqrs-kafka/compose
+cp .env.example .env        # 初回のみ
+docker compose up -d
+curl http://localhost:9082/actuator/health        # gateway => {"status":"UP"}
+curl http://localhost:9082/api/v1/bookings        # read エンドポイント => 200
+curl http://localhost:9092/                        # frontend
+docker compose down -v
+```
+
 ## Kustomize でデプロイ（overlay を使う）
 
 ```bash

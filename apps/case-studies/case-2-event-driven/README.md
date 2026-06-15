@@ -37,6 +37,19 @@ done
 cd ../frontend && docker build -t cargo2-frontend:0.0.1 .
 ```
 
+## Docker Compose で起動
+
+Kubernetes を使わず単一ホストで全体を起動する場合は Docker Compose を使います。機密は `.env` で注入します。
+
+```bash
+cd apps/case-studies/case-2-event-driven/compose
+cp .env.example .env        # 初回のみ
+docker compose up -d
+curl http://localhost:9080/actuator/health   # gateway => {"status":"UP"}
+curl http://localhost:9090/                   # frontend
+docker compose down -v
+```
+
 ## Kustomize でデプロイ
 
 ```bash

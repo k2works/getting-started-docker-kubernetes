@@ -1,0 +1,193 @@
+# 国際貨物輸送システム（ES/CQRS Kafka 版）の Docker Compose 構成。
+#
+# 機密は .env で注入する（初回: cp .env.example .env）。
+# サービスイメージは事前にビルドしておくこと（README 参照）。
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    restart: on-failure
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+    restart: on-failure
+
+  postgresql:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_MULTIPLE_DATABASES: >-
+        auth_db,booking_read_db,routing_read_db,tracking_read_db,handling_read_db,billing_read_db
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../ops/postgres/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  authms:
+    image: cargo-tracker/authms:latest
+    build:
+      context: ../backend
+      dockerfile: authms/Dockerfile
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: local-docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgresql:5432/auth_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+
+  bookingms:
+    image: cargo-tracker/bookingms:latest
+    build:
+      context: ../backend
+      dockerfile: bookingms/Dockerfile
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: local-docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgresql:5432/booking_read_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+
+  routingms:
+    image: cargo-tracker/routingms:latest
+    build:
+      context: ../backend
+      dockerfile: routingms/Dockerfile
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: local-docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgresql:5432/routing_read_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+
+  trackingms:
+    image: cargo-tracker/trackingms:latest
+    build:
+      context: ../backend
+      dockerfile: trackingms/Dockerfile
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: local-docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgresql:5432/tracking_read_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      TRACKING_PUBLIC_TOKEN_SECRET: ${TRACKING_PUBLIC_TOKEN_SECRET:-dev-only-tracking-public-token-secret-32bytes}
+
+  handlingms:
+    image: cargo-tracker/handlingms:latest
+    build:
+      context: ../backend
+      dockerfile: handlingms/Dockerfile
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: local-docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgresql:5432/handling_read_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+
+  billingms:
+    image: cargo-tracker/billingms:latest
+    build:
+      context: ../backend
+      dockerfile: billingms/Dockerfile
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: local-docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgresql:5432/billing_read_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+
+  gatewayms:
+    image: cargo-tracker/gatewayms:latest
+    build:
+      context: ../backend
+      dockerfile: gatewayms/Dockerfile
+    depends_on:
+      - authms
+      - bookingms
+      - routingms
+      - trackingms
+      - handlingms
+      - billingms
+    environment:
+      SPRING_PROFILES_ACTIVE: local-docker
+      JWT_SECRET: ${JWT_SECRET}
+      AUTHMS_URL: http://authms:8081
+      BOOKINGMS_URL: http://bookingms:8082
+      ROUTINGMS_URL: http://routingms:8083
+      TRACKINGMS_URL: http://trackingms:8084
+      HANDLINGMS_URL: http://handlingms:8085
+      BILLINGMS_URL: http://billingms:8086
+    ports:
+      - "9082:8080"
+
+  frontendms:
+    image: cargo-tracker/frontendms:latest
+    build:
+      context: ../frontend
+    depends_on:
+      - gatewayms
+    environment:
+      PORT: "80"
+      GATEWAY_URL: http://gatewayms:8080
+      GATEWAY_HOST: gatewayms
+    ports:
+      - "9092:80"
+
+volumes:
+  postgres-data:
