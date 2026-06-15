@@ -54,7 +54,10 @@ services:
     environment:
       POSTGRES_DB: cargo_tracker
       POSTGRES_USER: cargo_tracker
-      POSTGRES_PASSWORD: cargo_tracker
+      # パスワードはファイルで渡す（実体は secrets で注入）
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -64,9 +67,9 @@ services:
       retries: 5
 
   app:
-    image: cargo-tracker:0.0.1
     build:
       context: ../cargo-tracker
+    image: cargo-tracker:0.0.1
     depends_on:
       postgres:
         condition: service_healthy
@@ -74,7 +77,13 @@ services:
       SPRING_PROFILES_ACTIVE: product
       DB_URL: jdbc:postgresql://postgres:5432/cargo_tracker
       DB_USERNAME: cargo_tracker
-      DB_PASSWORD: cargo_tracker
+    # DB_PASSWORD は secrets のファイルから読み込んで起動する
+    command:
+      - "sh"
+      - "-c"
+      - 'export DB_PASSWORD="$$(cat /run/secrets/db_password)" && exec java $${JAVA_OPTS} -jar /app/app.jar'
+    secrets:
+      - db_password
     ports:
       - "18080:8080"
     healthcheck:
@@ -83,6 +92,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
+
+secrets:
+  db_password:
+    file: ./secrets/db_password
 
 volumes:
   postgres_data:
@@ -94,11 +107,15 @@ volumes:
 - **起動順序の制御**: `depends_on` の `condition: service_healthy` により、PostgreSQL が healthy になってからアプリを起動します
 - **永続化**: `postgres_data` という named volume で DB データを永続化します
 - **設定の注入**: `environment` で Spring の `product` プロファイルと DB 接続情報を渡します
+- **機密情報のファイル注入**: パスワードは `environment` に直書きせず、`secrets` でコンテナ内の `/run/secrets/db_password` にマウントします。PostgreSQL は `POSTGRES_PASSWORD_FILE` でファイルを読み、アプリは `command` でファイルを読み出して `DB_PASSWORD` を組み立ててから起動します（第 4 章のタスクアプリと同じ方式）
 
 ### 起動と動作確認
 
+secrets の実体ファイルを初回起動前に作成します。
+
 ```bash
 cd apps/case-studies/case-1-monolith/compose
+mkdir -p secrets && printf 'cargo_tracker' > secrets/db_password
 docker compose up -d
 ```
 
@@ -152,7 +169,7 @@ images:
 
 Compose との対応を見ると、考え方の違いが分かります。
 
-- **Compose の `environment`（DB 認証）→ Kubernetes の `Secret`**: `secret.yaml` に DB 認証情報を定義し、アプリの `Deployment` から `secretKeyRef` で参照します
+- **Compose のファイル `secrets`（DB 認証）→ Kubernetes の `Secret`**: Compose では `secrets` でパスワードをファイル注入していましたが、Kubernetes では `secret.yaml` に DB 認証情報を定義し、アプリの `Deployment` から `secretKeyRef` で参照します
 - **Compose の named volume → `PersistentVolumeClaim`**: `postgres.yaml` で PVC を宣言し、PostgreSQL の Pod にマウントします
 - **Compose の `ports` 公開 → `Service` + `Ingress`**: クラスタ内通信は `Service`、外部公開は `Ingress` で行います
 - **Compose の `healthcheck` → `readinessProbe` / `livenessProbe`**: アプリの `Deployment` で `/actuator/health` を監視します
@@ -229,7 +246,7 @@ curl http://localhost:18081/actuator/health
 | 対象 | 単一ホスト | Kubernetes クラスタ |
 | ファイル数 | 1 ファイル | リソース種別ごとに分割（6 ファイル） |
 | 記述量 | 少ない | 多い（種別ごとに apiVersion/kind/metadata） |
-| 機密情報 | 環境変数 / `.env` | `Secret` |
+| 機密情報 | ファイルベース `secrets` | `Secret` |
 | 永続化 | named volume | PVC |
 | 公開 | ポート公開 | Service + Ingress |
 | スケール・自己修復 | 限定的 | Deployment が標準で提供 |
