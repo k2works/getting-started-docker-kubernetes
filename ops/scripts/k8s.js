@@ -145,6 +145,31 @@ function ensureK8sSecrets(app) {
 }
 
 /**
+ * frontend をユニークタグで再ビルドし、deployment のイメージを差し替える。
+ * Docker Desktop の Kubernetes は同タグの再ビルドをキャッシュし取り込まないため、
+ * 毎回ユニークなタグ（reload-<timestamp>）を付けて確実に最新コードを反映する。
+ * @param {object} app APPS の要素（app.frontend が必要）
+ */
+function reloadFrontend(app) {
+  const fe = app.frontend;
+  const tag = `reload-${Date.now()}`;
+  const image = `${fe.repo}:${tag}`;
+  console.log(`[${app.name}] frontend を再ビルド: ${image}`);
+  try {
+    execSync(`docker build -t ${image} ${path.join(ROOT, fe.context)}`, {
+      stdio: 'inherit',
+      env: cleanDockerEnv(),
+    });
+  } catch (err) {
+    console.error(`エラー: frontend のビルドに失敗しました\n${err.message}`);
+    process.exit(1);
+  }
+  run(`kubectl -n ${app.namespace} set image deployment/${fe.dep} ${fe.container}=${image}`);
+  run(`kubectl -n ${app.namespace} rollout status deployment/${fe.dep} --timeout=120s`, { ignoreError: true });
+  console.log(`[${app.name}] frontend を ${image} に更新しました`);
+}
+
+/**
  * 起動後の案内を表示する
  * @param {object} app APPS の要素
  */
@@ -168,6 +193,10 @@ export default function (gulp) {
         run(`kubectl apply -k ${app.kustomize} -n ${app.namespace}`);
       } else {
         run(`kubectl apply -k ${app.kustomize}`);
+      }
+      // frontend は同タグだと旧イメージがキャッシュされるため、適用後に最新ビルドを反映する
+      if (app.frontend) {
+        reloadFrontend(app);
       }
       printEndpoints(app);
       done();
@@ -198,22 +227,7 @@ export default function (gulp) {
     if (app.frontend) {
       gulp.task(`k8s:${app.name}:reload-frontend`, (done) => {
         requireCluster();
-        const fe = app.frontend;
-        const tag = `reload-${Date.now()}`;
-        const image = `${fe.repo}:${tag}`;
-        console.log(`[${app.name}] frontend を再ビルド: ${image}`);
-        try {
-          execSync(`docker build -t ${image} ${path.join(ROOT, fe.context)}`, {
-            stdio: 'inherit',
-            env: cleanDockerEnv(),
-          });
-        } catch (err) {
-          console.error(`エラー: frontend のビルドに失敗しました\n${err.message}`);
-          process.exit(1);
-        }
-        run(`kubectl -n ${app.namespace} set image deployment/${fe.dep} ${fe.container}=${image}`);
-        run(`kubectl -n ${app.namespace} rollout status deployment/${fe.dep} --timeout=120s`, { ignoreError: true });
-        console.log(`[${app.name}] frontend を ${image} に更新しました`);
+        reloadFrontend(app);
         done();
       });
     }
@@ -281,7 +295,7 @@ ${lines}
 
   各アプリで利用できるアクション:
     k8s:<name>            Kustomize で適用（= :apply、必要な機密は自動生成）
-    k8s:<name>:apply      Kustomize で適用
+    k8s:<name>:apply      Kustomize で適用（frontend は最新ビルドを自動反映）
     k8s:<name>:delete     Kustomize リソースを削除
     k8s:<name>:status     Pod / Service / Ingress を表示
     k8s:<name>:open       port-forward してブラウザで開く（Ctrl+C で終了）
