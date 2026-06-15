@@ -79,6 +79,24 @@ nav:
       - 概要: adr/index.md
   - 記事:
       - 概要: article/index.md
+      - Docker/Kubernetes 実践コンテナ解説:
+          - 概要: article/getting-start-docker-kubernetes/index.md
+          - 執筆計画: article/getting-start-docker-kubernetes/outline.md
+          - 第 1 章 コンテナと Docker の基礎: article/getting-start-docker-kubernetes/01-container-and-docker-basics.md
+          - 第 2 章 コンテナのデプロイ: article/getting-start-docker-kubernetes/02-container-deployment.md
+          - 第 3 章 実用的なコンテナの構築とデプロイ: article/getting-start-docker-kubernetes/03-practical-container-build-deploy.md
+          - 第 4 章 複数コンテナ構成でのアプリケーション構築: article/getting-start-docker-kubernetes/04-multi-container-application.md
+          - 第 5 章 Kubernetes 入門: article/getting-start-docker-kubernetes/05-kubernetes-introduction.md
+          - 第 6 章 Kubernetes のデプロイ・クラスタ構築: article/getting-start-docker-kubernetes/06-kubernetes-deploy-cluster.md
+          - 第 7 章 Kubernetes の発展的な利用: article/getting-start-docker-kubernetes/07-kubernetes-advanced.md
+          - 第 8 章 Kubernetes アプリケーションのパッケージング: article/getting-start-docker-kubernetes/08-kubernetes-packaging.md
+          - 第 9 章 コンテナの運用: article/getting-start-docker-kubernetes/09-container-operations.md
+          - 第 10 章 最適なコンテナイメージ作成と運用: article/getting-start-docker-kubernetes/10-optimal-container-image.md
+          - 第 11 章 コンテナにおける継続的デリバリー: article/getting-start-docker-kubernetes/11-continuous-delivery.md
+          - 第 12 章 コンテナのさまざまな活用方法: article/getting-start-docker-kubernetes/12-container-use-cases.md
+          - 付録 A 開発ツールのセットアップ: article/getting-start-docker-kubernetes/appendix-a-dev-tools-setup.md
+          - 付録 B さまざまなコンテナオーケストレーション環境: article/getting-start-docker-kubernetes/appendix-b-orchestration-environments.md
+          - 付録 C コンテナ開発・運用の Tips: article/getting-start-docker-kubernetes/appendix-c-tips.md
   - リファレンス:
       - 概要: reference/index.md
       - よいソフトウェアとは: reference/よいソフトウェアとは.md
