@@ -1,8 +1,8 @@
-site_name: Site Name
+site_name: Docker/Kubernetes 実践コンテナ解説
 site_description: Site Description
 site_author: Project Team
-repo_url: https://github.com/k2works/claude-code-booster
-repo_name: claude-code-booster
+repo_url: https://github.com/k2works/getting-started-docker-kubernetes
+repo_name: getting-started-docker-kubernetes
 
 theme:
   name: material
@@ -52,8 +52,8 @@ extra:
   plantuml_url: http://www.plantuml.com/plantuml
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/k2works
-      name: GitHub Repository/claude-code-booster
+      link: https://github.com/k2works/getting-started-docker-kubernetes
+      name: GitHub Repository/getting-started-docker-kubernetes
 
 plugins:
   - search
