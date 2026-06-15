@@ -25,6 +25,11 @@ spec:
             - name: {{ $k }}
               value: {{ $v | quote }}
             {{- end }}
+            # gateway は JWT を検証するため、authms の署名鍵と同じ JWT_SECRET が必須
+            - name: JWT_SECRET
+              valueFrom: { secretKeyRef: { name: app-secrets, key: JWT_SECRET } }
+            - name: JWT_ISSUER
+              value: case-study-cargo-tracker
           ports:
             - name: http
               containerPort: {{ .Values.gateway.port }}
