@@ -1,13 +1,20 @@
 # 国際貨物輸送システム（Cargo Tracker）モノリス版の Docker Compose 構成。
 #
 # アプリのソースは ../cargo-tracker に同梱しており、初回 up 時にビルドされる。
+#
+# パスワードは environment に直書きせず、ファイルベースの secrets で注入する
+# （第 4 章のタスクアプリと同じ方式）。初回起動前に secrets/db_password を作成すること:
+#   mkdir -p secrets && printf 'cargo_tracker' > secrets/db_password
 services:
   postgres:
     image: postgres:16
     environment:
       POSTGRES_DB: cargo_tracker
       POSTGRES_USER: cargo_tracker
-      POSTGRES_PASSWORD: cargo_tracker
+      # パスワードはファイルで渡す（実体は secrets で注入）
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -17,9 +24,9 @@ services:
       retries: 5
 
   app:
-    image: cargo-tracker:0.0.1
     build:
       context: ../cargo-tracker
+    image: cargo-tracker:0.0.1
     depends_on:
       postgres:
         condition: service_healthy
@@ -27,7 +34,13 @@ services:
       SPRING_PROFILES_ACTIVE: product
       DB_URL: jdbc:postgresql://postgres:5432/cargo_tracker
       DB_USERNAME: cargo_tracker
-      DB_PASSWORD: cargo_tracker
+    # DB_PASSWORD は secrets のファイルから読み込んで起動する
+    command:
+      - "sh"
+      - "-c"
+      - 'export DB_PASSWORD="$$(cat /run/secrets/db_password)" && exec java $${JAVA_OPTS} -jar /app/app.jar'
+    secrets:
+      - db_password
     ports:
       - "18080:8080"
     healthcheck:
@@ -36,6 +49,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
+
+secrets:
+  db_password:
+    file: ./secrets/db_password
 
 volumes:
   postgres_data:

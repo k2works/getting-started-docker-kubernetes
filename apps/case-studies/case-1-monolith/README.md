@@ -24,8 +24,11 @@ Docker Compose を使う場合は `compose.yaml` の `build` 設定により初�
 
 ## Docker Compose で起動
 
+パスワードは `environment` に直書きせず、ファイルベースの `secrets` で注入します（第 4 章のタスクアプリと同じ方式）。初回のみ機密ファイルを作成します（`secrets/db_password` は `.gitignore` 済み）。
+
 ```bash
 cd apps/case-studies/case-1-monolith/compose
+cp secrets/db_password.example secrets/db_password   # 初回のみ
 docker compose up -d
 # アプリ起動後（actuator が healthy になるまで待つ）
 curl http://localhost:18080/actuator/health    # => {"status":"UP"}

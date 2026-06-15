@@ -1,0 +1,2 @@
+# 実際の機密ファイルはコミットしない（.example をコピーして作成する）
+secrets/db_password
