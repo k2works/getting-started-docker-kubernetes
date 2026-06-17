@@ -67,6 +67,23 @@ const APPS = [
     namespace: 'cargo-monolith',
     endpoints: ['kubectl -n cargo-monolith port-forward svc/cargo-tracker 18080:80 → /actuator/health'],
     open: { svc: 'cargo-tracker', port: 80, path: '/' },
+    // apply 時にアプリイメージをユニークタグで再ビルドして反映する（同タグ 0.0.1 のキャッシュ回避）
+    // これにより delete → apply で最新ソース（Flyway V16 のシード含む）が確実にデプロイされる
+    appImage: {
+      repo: 'cargo-tracker',
+      context: 'apps/case-studies/case-1-monolith/cargo-tracker',
+      dep: 'cargo-tracker',
+      container: 'cargo-tracker',
+    },
+    // シードは Flyway（V16__seed_demo_data.sql）でデプロイ時に自動投入される
+    seed: {
+      pod: 'deploy/postgres',
+      user: 'cargo_tracker',
+      db: 'cargo_tracker',
+      table: 'cargo',
+      detail: 'SELECT booking_status, count(*) FROM cargo GROUP BY booking_status ORDER BY 1;',
+      expect: '貨物 8（CONFIRMED 3 / PRELIMINARY 3 / ROUTE_PROPOSED 2）',
+    },
   },
   {
     name: 'case2',
@@ -77,6 +94,15 @@ const APPS = [
     endpoints: ['kubectl -n cargo-event port-forward svc/gatewayms 18080:8080 → /actuator/health'],
     open: { svc: 'frontend', port: 80, path: '/' },
     frontend: { dep: 'frontend', container: 'frontend', repo: 'cargo2-frontend', context: 'apps/case-studies/case-2-event-driven/frontend' },
+    // シードは Flyway（V4__seed_cargos.sql 等）でデプロイ時に自動投入される
+    seed: {
+      pod: 'deploy/postgres',
+      user: 'cargo_tracker',
+      db: 'booking_db',
+      table: 'cargo',
+      detail: 'SELECT booking_status, count(*) FROM cargo GROUP BY booking_status ORDER BY 1;',
+      expect: '貨物 8（CONFIRMED 3 / PRELIMINARY 3 / ROUTE_PROPOSED 2）',
+    },
   },
   {
     name: 'case3',
@@ -87,6 +113,15 @@ const APPS = [
     endpoints: ['kubectl -n cargo-axon port-forward svc/gatewayms 18080:8080 → /actuator/health'],
     open: { svc: 'frontend', port: 80, path: '/' },
     frontend: { dep: 'frontend', container: 'frontend', repo: 'cargo3-frontend', context: 'apps/case-studies/case-3-escqrs-axon/frontend' },
+    // シードは DemoDataSeeder（local-docker プロファイル）が起動時に Axon コマンドで投入。投影は非同期
+    seed: {
+      pod: 'deploy/postgres',
+      user: 'cargo',
+      db: 'booking_read_db',
+      table: 'cargo_summary',
+      detail: 'SELECT booking_status, count(*) FROM cargo_summary GROUP BY booking_status ORDER BY 1;',
+      expect: '予約 5',
+    },
   },
   {
     name: 'case4',
@@ -97,6 +132,16 @@ const APPS = [
     endpoints: ['kubectl -n cargo-tracker port-forward svc/gatewayms 18080:8080 → /actuator/health'],
     open: { svc: 'frontendms', port: 80, path: '/' },
     frontend: { dep: 'frontendms', container: 'frontendms', repo: 'cargo-tracker/frontendms', context: 'apps/case-studies/case-4-escqrs-kafka/frontend' },
+    // シードは DevDataSeeder（dev-seed プロファイル、overlays/local）が起動時に投入。投影は非同期
+    // postgresql は StatefulSet のため Pod 名 postgresql-0 を直接指定する
+    seed: {
+      pod: 'postgresql-0',
+      user: 'cargo',
+      db: 'booking_read_db',
+      table: 'cargo_summary',
+      detail: 'SELECT booking_status, count(*) FROM cargo_summary GROUP BY booking_status ORDER BY 1;',
+      expect: '予約 3',
+    },
   },
 ];
 
@@ -118,6 +163,27 @@ function run(command, options = {}) {
     console.error(`エラー: コマンドの実行に失敗しました: ${command}\n${err.message}`);
     process.exit(1);
   }
+}
+
+/**
+ * シェルコマンドを実行し標準出力を文字列で返す（失敗時は null）
+ * @param {string} command 実行するコマンド
+ * @returns {string|null}
+ */
+function runCapture(command) {
+  try {
+    return execSync(command, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 同期的に指定ミリ秒だけ待機する（クロスプラットフォーム）
+ * @param {number} ms 待機時間（ミリ秒）
+ */
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
 /**
@@ -147,28 +213,40 @@ function ensureK8sSecrets(app) {
 }
 
 /**
- * frontend をユニークタグで再ビルドし、deployment のイメージを差し替える。
+ * イメージをユニークタグで再ビルドし、deployment のイメージを差し替える。
  * Docker Desktop の Kubernetes は同タグの再ビルドをキャッシュし取り込まないため、
  * 毎回ユニークなタグ（reload-<timestamp>）を付けて確実に最新コードを反映する。
- * @param {object} app APPS の要素（app.frontend が必要）
+ * @param {object} app APPS の要素
+ * @param {object} img { repo, context, dep, container, dockerfile? }
+ * @param {string} label 表示用ラベル（例: 'frontend' / 'アプリ'）
  */
-function reloadFrontend(app) {
-  const fe = app.frontend;
+function rebuildAndSetImage(app, img, label) {
   const tag = `reload-${Date.now()}`;
-  const image = `${fe.repo}:${tag}`;
-  console.log(`[${app.name}] frontend を再ビルド: ${image}`);
+  const image = `${img.repo}:${tag}`;
+  const dockerfile = img.dockerfile ? `-f ${path.join(ROOT, img.dockerfile)} ` : '';
+  console.log(`[${app.name}] ${label} を再ビルド: ${image}`);
   try {
-    execSync(`docker build -t ${image} ${path.join(ROOT, fe.context)}`, {
+    execSync(`docker build -t ${image} ${dockerfile}${path.join(ROOT, img.context)}`, {
       stdio: 'inherit',
       env: cleanDockerEnv(),
     });
   } catch (err) {
-    console.error(`エラー: frontend のビルドに失敗しました\n${err.message}`);
+    console.error(`エラー: ${label} のビルドに失敗しました\n${err.message}`);
     process.exit(1);
   }
-  run(`kubectl -n ${app.namespace} set image deployment/${fe.dep} ${fe.container}=${image}`);
-  run(`kubectl -n ${app.namespace} rollout status deployment/${fe.dep} --timeout=120s`, { ignoreError: true });
-  console.log(`[${app.name}] frontend を ${image} に更新しました`);
+  run(`kubectl -n ${app.namespace} set image deployment/${img.dep} ${img.container}=${image}`);
+  run(`kubectl -n ${app.namespace} rollout status deployment/${img.dep} --timeout=180s`, { ignoreError: true });
+  console.log(`[${app.name}] ${label} を ${image} に更新しました`);
+}
+
+/** frontend をユニークタグで再ビルドして反映する（app.frontend が必要） */
+function reloadFrontend(app) {
+  rebuildAndSetImage(app, app.frontend, 'frontend');
+}
+
+/** アプリ（バックエンド）イメージをユニークタグで再ビルドして反映する（app.appImage が必要） */
+function reloadApp(app) {
+  rebuildAndSetImage(app, app.appImage, 'アプリ');
 }
 
 /**
@@ -196,7 +274,10 @@ export default function (gulp) {
       } else {
         run(`kubectl apply -k ${app.kustomize}`);
       }
-      // frontend は同タグだと旧イメージがキャッシュされるため、適用後に最新ビルドを反映する
+      // 同タグだと旧イメージがキャッシュされるため、適用後にユニークタグで最新ビルドを反映する
+      if (app.appImage) {
+        reloadApp(app);
+      }
       if (app.frontend) {
         reloadFrontend(app);
       }
@@ -230,6 +311,15 @@ export default function (gulp) {
       gulp.task(`k8s:${app.name}:reload-frontend`, (done) => {
         requireCluster();
         reloadFrontend(app);
+        done();
+      });
+    }
+
+    // アプリ（バックエンド）をユニークタグで再ビルドして反映する（同タグキャッシュ回避）
+    if (app.appImage) {
+      gulp.task(`k8s:${app.name}:reload`, (done) => {
+        requireCluster();
+        reloadApp(app);
         done();
       });
     }
@@ -268,6 +358,41 @@ export default function (gulp) {
       done();
     });
 
+    // シードデータの投入を確認（読み取りモデルへの投影完了まで待機）
+    // デプロイ時に Flyway / 各 Seeder が自動投入するため、本タスクは投入結果を検証する。
+    if (app.seed) {
+      gulp.task(`k8s:${app.name}:seed`, (done) => {
+        requireCluster();
+        const s = app.seed;
+        const countCmd = `kubectl -n ${app.namespace} exec ${s.pod} -- psql -U ${s.user} -d ${s.db} -tAc "SELECT count(*) FROM ${s.table}"`;
+        const maxAttempts = 24; // 最大 24 回 × 5 秒 ≒ 2 分（Pod 起動・非同期投影を待つ）
+        const intervalMs = 5000;
+        console.log(`[${app.name}] シードデータの投入を確認します（${s.db}.${s.table}、期待: ${s.expect}）`);
+        let count = 0;
+        for (let i = 1; i <= maxAttempts; i += 1) {
+          const out = runCapture(countCmd);
+          const n = out == null ? NaN : parseInt(out.trim(), 10);
+          if (Number.isFinite(n) && n > 0) {
+            count = n;
+            break;
+          }
+          const reason = out == null ? 'DB 未接続 / Pod 未起動' : `現在 ${Number.isFinite(n) ? n : 0} 件`;
+          console.log(`  待機中... (${i}/${maxAttempts}) ${reason}`);
+          if (i < maxAttempts) sleepSync(intervalMs);
+        }
+        if (count === 0) {
+          console.error('エラー: シードデータを確認できませんでした。考えられる原因:');
+          console.error('  1. Pod が未起動 / 読み取りモデルへの投影が未完了 → しばらく待って再実行');
+          console.error('  2. デプロイ済みイメージがシード追加前で古い（Flyway 未適用 / Seeder 未発火）');
+          console.error(`     → アプリイメージを再ビルドし kubectl -n ${app.namespace} rollout restart で再起動後に再実行`);
+          process.exit(1);
+        }
+        console.log(`\n[${app.name}] シード確認 OK: ${s.table} = ${count} 件（期待: ${s.expect}）`);
+        run(`kubectl -n ${app.namespace} exec ${s.pod} -- psql -U ${s.user} -d ${s.db} -c "${s.detail}"`, { ignoreError: true });
+        done();
+      });
+    }
+
     // Helm（チャートを持つアプリのみ）
     if (app.helm) {
       gulp.task(`k8s:${app.name}:helm`, (done) => {
@@ -287,8 +412,9 @@ export default function (gulp) {
   // ヘルプ
   gulp.task('k8s:help', (done) => {
     const lines = APPS.map((a) => {
-      const helm = a.helm ? ' / :helm' : '';
-      return `  k8s:${a.name}`.padEnd(28) + `${a.label}（ns: ${a.namespace}${helm}）`;
+      const extras = [a.helm ? ':helm' : null, a.seed ? ':seed' : null].filter(Boolean).join(' / ');
+      const suffix = extras ? ` / ${extras}` : '';
+      return `  k8s:${a.name}`.padEnd(28) + `${a.label}（ns: ${a.namespace}${suffix}）`;
     }).join('\n');
     console.log(`
 === Kubernetes デプロイコマンド（apps/） ===
@@ -301,13 +427,16 @@ ${lines}
     k8s:<name>:delete     Kustomize リソースを削除
     k8s:<name>:status     Pod / Service / Ingress を表示
     k8s:<name>:open       port-forward してブラウザで開く（Ctrl+C で終了）
+    k8s:<name>:reload     アプリイメージをユニークタグで再ビルドし反映（case1）
     k8s:<name>:reload-frontend  frontend をユニークタグで再ビルドし反映（case2〜4）
     k8s:<name>:build      kubectl kustomize で生成結果を確認
+    k8s:<name>:seed       シードデータの投入を確認（投影完了まで待機、cargo 系のみ）
     k8s:<name>:helm       Helm でデプロイ（チャートを持つアプリのみ）
     k8s:<name>:helm:delete  Helm リリースを削除
 
   例: npx gulp k8s:case4 で ES/CQRS（Kafka）を Kustomize デプロイ
       npx gulp k8s:case4:helm で同じ構成を Helm デプロイ
+      npx gulp k8s:case4:seed でシードデータの投入を確認
     `);
     done();
   });
