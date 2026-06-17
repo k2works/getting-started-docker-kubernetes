@@ -32,6 +32,8 @@ resources:
   - frontendms.yaml
   # 外部公開
   - ingress.yaml
+  # DB 管理 UI
+  - adminer.yaml
   # ロギング基盤（EFK + DaemonSet）
   - logging/elasticsearch.yaml
   - logging/fluentd-daemonset.yaml

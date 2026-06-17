@@ -122,6 +122,24 @@ kubectl -n cargo-axon port-forward svc/axonserver 18082:8024
 
 > 本構成は `AXONIQ_AXONSERVER_DEVMODE_ENABLED=true` の開発モード（認証なし）です。`npx gulp k8s:case3:open` ではアプリ・Kibana とあわせて自動で開きます。
 
+## DB 管理（Adminer）
+
+PostgreSQL（CQRS の Read 側 DB）を Web UI で操作できる **Adminer** を同梱しています（`k8s/kustomize/base/adminer.yaml`）。`booking_read_db` などの Read Model や `auth_db` を閲覧できます（書き込み側のイベントは Axon Server ダッシュボードで確認）。
+
+```bash
+kubectl -n cargo-axon port-forward svc/adminer 18083:8080
+#   → http://localhost:18083/
+```
+
+| 項目 | 値 |
+| :--- | :--- |
+| System | PostgreSQL |
+| Server | postgres |
+| Username / Password | cargo / cargo-dev-password |
+| Database | booking_read_db 等（auth_db / *_read_db） |
+
+> `npx gulp k8s:case3:open` ではアプリ・Kibana・Axon Server とあわせて自動で開きます。
+
 ## 比較の観点
 
 case-2 と同じく Kustomize 対 Helm ですが、ステートフルなインフラ（Axon Server）が加わることで、両手段が「アプリ群の繰り返し」と「特別な単発インフラ」をどう書き分けるかが論点になります。詳細は第 15 章の記事を参照してください。

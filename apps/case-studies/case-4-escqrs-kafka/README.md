@@ -118,6 +118,24 @@ kubectl -n cargo-tracker port-forward svc/kafka-ui 18082:8080
 
 > `npx gulp k8s:case4:open` ではアプリ・Kibana とあわせて自動で開きます。認証は無効（`AUTH_TYPE=DISABLED`）の学習用構成です。
 
+## DB 管理（Adminer）
+
+PostgreSQL（CQRS の Read 側 DB）を Web UI で操作できる **Adminer** を同梱しています（`k8s/base/adminer.yaml`）。`booking_read_db` などの Read Model や `auth_db` を閲覧できます（イベントの流れは Kafka UI で確認）。PostgreSQL は StatefulSet（Service 名 `postgresql`）です。
+
+```bash
+kubectl -n cargo-tracker port-forward svc/adminer 18083:8080
+#   → http://localhost:18083/
+```
+
+| 項目 | 値 |
+| :--- | :--- |
+| System | PostgreSQL |
+| Server | postgresql |
+| Username / Password | cargo / cargo-dev-password |
+| Database | booking_read_db 等（auth_db / *_read_db） |
+
+> `npx gulp k8s:case4:open` ではアプリ・Kibana・Kafka UI とあわせて自動で開きます。
+
 ## 比較の観点
 
 case-4 は Kustomize に **overlay（base/overlays）** を、Helm に **`_helpers.tpl` による命名・ラベルの共通化**を備えた、より実運用に近い構成です。詳細は第 16 章の記事を参照してください。

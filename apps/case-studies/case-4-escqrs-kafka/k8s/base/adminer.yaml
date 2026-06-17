@@ -1,0 +1,57 @@
+# Adminer（DB 管理 UI）
+# PostgreSQL に Web UI（ポート 8080）で接続し、テーブル・データ・SQL を操作できる。
+# ログイン時に System=PostgreSQL、Server（既定値で表示）、ユーザー・パスワード・DB を入力する。
+# port-forward でアクセスする（NodePort は kind では localhost に出ないため）。
+apiVersion: v1
+kind: Service
+metadata:
+  name: adminer
+  labels:
+    app.kubernetes.io/name: adminer
+spec:
+  selector:
+    app.kubernetes.io/name: adminer
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adminer
+  labels:
+    app.kubernetes.io/name: adminer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: adminer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: adminer
+    spec:
+      containers:
+        - name: adminer
+          image: adminer:4.8.1
+          env:
+            # ログイン画面の Server 欄の既定値（PostgreSQL の Service 名）
+            - name: ADMINER_DEFAULT_SERVER
+              value: postgresql
+          ports:
+            - name: http
+              containerPort: 8080
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10

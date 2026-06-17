@@ -100,6 +100,24 @@ kubectl -n cargo-event port-forward svc/rabbitmq 18082:15672
 
 > `guest` ユーザーはループバック接続限定のため、port-forward 経由（localhost からの接続として扱われる）でログインできます。`npx gulp k8s:case2:open` ではアプリ・Kibana とあわせて自動で開きます。
 
+## DB 管理（Adminer）
+
+PostgreSQL を Web UI で操作できる **Adminer** を同梱しています（`k8s/kustomize/base/adminer.yaml`）。サービスごとの 6 データベース（`auth_db` / `booking_db` / `routing_db` / `tracking_db` / `handling_db` / `billing_db`）をログイン時に切り替えて閲覧できます。
+
+```bash
+kubectl -n cargo-event port-forward svc/adminer 18083:8080
+#   → http://localhost:18083/
+```
+
+| 項目 | 値 |
+| :--- | :--- |
+| System | PostgreSQL |
+| Server | postgres |
+| Username / Password | cargo_tracker / cargo_tracker |
+| Database | booking_db 等（6 DB） |
+
+> `npx gulp k8s:case2:open` ではアプリ・Kibana・RabbitMQ とあわせて自動で開きます。
+
 ## 比較の観点
 
 | 観点 | Kustomize | Helm |

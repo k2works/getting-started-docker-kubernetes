@@ -83,6 +83,24 @@ kubectl -n cargo-monolith port-forward svc/kibana 18081:5601
 
 > 学習・ローカル検証用の単一ノード構成です（ES のセキュリティは無効）。本番では認証・冗長化・リソース調整を行ってください。
 
+## DB 管理（Adminer）
+
+PostgreSQL を Web UI で操作できる **Adminer** を同梱しています（`k8s/kustomize/adminer.yaml`）。テーブル・データの閲覧や SQL 実行ができます。port-forward でアクセスし、ログイン画面で下表の値を入力します（Server は既定表示）。
+
+```bash
+kubectl -n cargo-monolith port-forward svc/adminer 18082:8080
+#   → http://localhost:18082/
+```
+
+| 項目 | 値 |
+| :--- | :--- |
+| System | PostgreSQL |
+| Server | postgres |
+| Username / Password | cargo_tracker / cargo_tracker |
+| Database | cargo_tracker |
+
+> `npx gulp k8s:case1:open` ではアプリ・Kibana とあわせて自動で開きます。
+
 ## 比較の観点
 
 | 観点 | Docker Compose | Kustomize |
