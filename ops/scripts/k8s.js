@@ -68,9 +68,11 @@ const APPS = [
     endpoints: [
       'kubectl -n cargo-monolith port-forward svc/cargo-tracker 18080:80 → /actuator/health',
       'Kibana（ログ可視化）: kubectl -n cargo-monolith port-forward svc/kibana 18081:5601 → http://localhost:18081/（index pattern は自動作成済み。開くと Discover が表示される）',
+      'Adminer（DB 管理）: kubectl -n cargo-monolith port-forward svc/adminer 18082:8080 → http://localhost:18082/（PostgreSQL / Server: postgres / cargo_tracker / cargo_tracker / DB: cargo_tracker）',
     ],
     open: { svc: 'cargo-tracker', port: 80, path: '/' },
     kibanaNodePort: 30051,
+    consoles: [{ label: 'Adminer（DB 管理）', svc: 'adminer', port: 8080, note: '※System: PostgreSQL / Server: postgres / User-Pass: cargo_tracker / DB: cargo_tracker' }],
     // apply 時にアプリイメージをユニークタグで再ビルドして反映する（同タグ 0.0.1 のキャッシュ回避）
     // これにより delete → apply で最新ソース（Flyway V16 のシード含む）が確実にデプロイされる
     appImage: {
@@ -99,10 +101,14 @@ const APPS = [
       'kubectl -n cargo-event port-forward svc/gatewayms 18080:8080 → /actuator/health',
       'Kibana（ログ可視化）: kubectl -n cargo-event port-forward svc/kibana 18081:5601 → http://localhost:18081/（index pattern は自動作成済み。開くと Discover が表示される）',
       'RabbitMQ 管理コンソール: kubectl -n cargo-event port-forward svc/rabbitmq 18082:15672 → http://localhost:18082/（ログイン: guest / guest）',
+      'Adminer（DB 管理）: kubectl -n cargo-event port-forward svc/adminer 18083:8080 → http://localhost:18083/（PostgreSQL / Server: postgres / cargo_tracker / cargo_tracker / DB: booking_db 等）',
     ],
     open: { svc: 'frontend', port: 80, path: '/' },
     kibanaNodePort: 30052,
-    consoles: [{ label: 'RabbitMQ 管理コンソール', svc: 'rabbitmq', port: 15672, note: '※ログイン: guest / guest' }],
+    consoles: [
+      { label: 'RabbitMQ 管理コンソール', svc: 'rabbitmq', port: 15672, note: '※ログイン: guest / guest' },
+      { label: 'Adminer（DB 管理）', svc: 'adminer', port: 8080, note: '※System: PostgreSQL / Server: postgres / User-Pass: cargo_tracker / DB: booking_db 等' },
+    ],
     frontend: { dep: 'frontend', container: 'frontend', repo: 'cargo2-frontend', context: 'apps/case-studies/case-2-event-driven/frontend' },
     // シードは Flyway（V4__seed_cargos.sql 等）でデプロイ時に自動投入される
     seed: {
@@ -124,10 +130,14 @@ const APPS = [
       'kubectl -n cargo-axon port-forward svc/gatewayms 18080:8080 → /actuator/health',
       'Kibana（ログ可視化）: kubectl -n cargo-axon port-forward svc/kibana 18081:5601 → http://localhost:18081/（index pattern は自動作成済み。開くと Discover が表示される）',
       'Axon Server ダッシュボード: kubectl -n cargo-axon port-forward svc/axonserver 18082:8024 → http://localhost:18082/',
+      'Adminer（DB 管理）: kubectl -n cargo-axon port-forward svc/adminer 18083:8080 → http://localhost:18083/（PostgreSQL / Server: postgres / cargo / cargo-dev-password / DB: booking_read_db 等）',
     ],
     open: { svc: 'frontend', port: 80, path: '/' },
     kibanaNodePort: 30053,
-    consoles: [{ label: 'Axon Server ダッシュボード', svc: 'axonserver', port: 8024 }],
+    consoles: [
+      { label: 'Axon Server ダッシュボード', svc: 'axonserver', port: 8024 },
+      { label: 'Adminer（DB 管理）', svc: 'adminer', port: 8080, note: '※System: PostgreSQL / Server: postgres / User: cargo / Pass: cargo-dev-password / DB: booking_read_db 等' },
+    ],
     frontend: { dep: 'frontend', container: 'frontend', repo: 'cargo3-frontend', context: 'apps/case-studies/case-3-escqrs-axon/frontend' },
     // シードは DemoDataSeeder（local-docker プロファイル）が起動時に Axon コマンドで投入。投影は非同期
     seed: {
@@ -149,10 +159,14 @@ const APPS = [
       'kubectl -n cargo-tracker port-forward svc/gatewayms 18080:8080 → /actuator/health',
       'Kibana（ログ可視化）: kubectl -n cargo-tracker port-forward svc/kibana 18081:5601 → http://localhost:18081/（index pattern は自動作成済み。開くと Discover が表示される）',
       'Kafka UI: kubectl -n cargo-tracker port-forward svc/kafka-ui 18082:8080 → http://localhost:18082/',
+      'Adminer（DB 管理）: kubectl -n cargo-tracker port-forward svc/adminer 18083:8080 → http://localhost:18083/（PostgreSQL / Server: postgresql / cargo / cargo-dev-password / DB: booking_read_db 等）',
     ],
     open: { svc: 'frontendms', port: 80, path: '/' },
     kibanaNodePort: 30054,
-    consoles: [{ label: 'Kafka UI', svc: 'kafka-ui', port: 8080 }],
+    consoles: [
+      { label: 'Kafka UI', svc: 'kafka-ui', port: 8080 },
+      { label: 'Adminer（DB 管理）', svc: 'adminer', port: 8080, note: '※System: PostgreSQL / Server: postgresql / User: cargo / Pass: cargo-dev-password / DB: booking_read_db 等' },
+    ],
     frontend: { dep: 'frontendms', container: 'frontendms', repo: 'cargo-tracker/frontendms', context: 'apps/case-studies/case-4-escqrs-kafka/frontend' },
     // シードは DevDataSeeder（dev-seed プロファイル、overlays/local）が起動時に投入。投影は非同期
     // postgresql は StatefulSet のため Pod 名 postgresql-0 を直接指定する
