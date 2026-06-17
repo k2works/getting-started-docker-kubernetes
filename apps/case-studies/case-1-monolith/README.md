@@ -44,6 +44,21 @@ kubectl -n cargo-monolith port-forward svc/cargo-tracker 18080:80
 curl http://localhost:18080/actuator/health    # => {"status":"UP"}
 ```
 
+## シードデータの動作確認
+
+デモ用シードは Flyway マイグレーション `V16__seed_demo_data.sql` で投入されます。Flyway は profile=`product` の k8s でも自動適用されるため、デプロイ直後から荷主 3・貨物 8（経路区間付き）が存在します。
+
+```bash
+# ① DB で確認（最も確実）
+kubectl -n cargo-monolith exec deploy/postgres -- \
+  psql -U cargo_tracker -d cargo_tracker -c \
+  "SELECT booking_status, count(*) FROM cargo GROUP BY booking_status ORDER BY 1;"
+#   => CONFIRMED 3 / PRELIMINARY 3 / ROUTE_PROPOSED 2
+
+# ② REST API で確認（port-forward 中）
+curl http://localhost:18080/api/v1/bookings    # 8 件の貨物が返る
+```
+
 ## 比較の観点
 
 | 観点 | Docker Compose | Kustomize |
