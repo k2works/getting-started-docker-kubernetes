@@ -98,9 +98,11 @@ const APPS = [
     endpoints: [
       'kubectl -n cargo-event port-forward svc/gatewayms 18080:8080 → /actuator/health',
       'Kibana（ログ可視化）: kubectl -n cargo-event port-forward svc/kibana 18081:5601 → http://localhost:18081/（index pattern は自動作成済み。開くと Discover が表示される）',
+      'RabbitMQ 管理コンソール: kubectl -n cargo-event port-forward svc/rabbitmq 18082:15672 → http://localhost:18082/（ログイン: guest / guest）',
     ],
     open: { svc: 'frontend', port: 80, path: '/' },
     kibanaNodePort: 30052,
+    consoles: [{ label: 'RabbitMQ 管理コンソール', svc: 'rabbitmq', port: 15672, note: '※ログイン: guest / guest' }],
     frontend: { dep: 'frontend', container: 'frontend', repo: 'cargo2-frontend', context: 'apps/case-studies/case-2-event-driven/frontend' },
     // シードは Flyway（V4__seed_cargos.sql 等）でデプロイ時に自動投入される
     seed: {
@@ -121,9 +123,11 @@ const APPS = [
     endpoints: [
       'kubectl -n cargo-axon port-forward svc/gatewayms 18080:8080 → /actuator/health',
       'Kibana（ログ可視化）: kubectl -n cargo-axon port-forward svc/kibana 18081:5601 → http://localhost:18081/（index pattern は自動作成済み。開くと Discover が表示される）',
+      'Axon Server ダッシュボード: kubectl -n cargo-axon port-forward svc/axonserver 18082:8024 → http://localhost:18082/',
     ],
     open: { svc: 'frontend', port: 80, path: '/' },
     kibanaNodePort: 30053,
+    consoles: [{ label: 'Axon Server ダッシュボード', svc: 'axonserver', port: 8024 }],
     frontend: { dep: 'frontend', container: 'frontend', repo: 'cargo3-frontend', context: 'apps/case-studies/case-3-escqrs-axon/frontend' },
     // シードは DemoDataSeeder（local-docker プロファイル）が起動時に Axon コマンドで投入。投影は非同期
     seed: {
@@ -144,9 +148,11 @@ const APPS = [
     endpoints: [
       'kubectl -n cargo-tracker port-forward svc/gatewayms 18080:8080 → /actuator/health',
       'Kibana（ログ可視化）: kubectl -n cargo-tracker port-forward svc/kibana 18081:5601 → http://localhost:18081/（index pattern は自動作成済み。開くと Discover が表示される）',
+      'Kafka UI: kubectl -n cargo-tracker port-forward svc/kafka-ui 18082:8080 → http://localhost:18082/',
     ],
     open: { svc: 'frontendms', port: 80, path: '/' },
     kibanaNodePort: 30054,
+    consoles: [{ label: 'Kafka UI', svc: 'kafka-ui', port: 8080 }],
     frontend: { dep: 'frontendms', container: 'frontendms', repo: 'cargo-tracker/frontendms', context: 'apps/case-studies/case-4-escqrs-kafka/frontend' },
     // シードは DevDataSeeder（dev-seed プロファイル、overlays/local）が起動時に投入。投影は非同期
     // postgresql は StatefulSet のため Pod 名 postgresql-0 を直接指定する
@@ -340,52 +346,74 @@ export default function (gulp) {
       });
     }
 
-    // ブラウザで開く（アプリと Kibana を port-forward して開く。Ctrl+C で終了）
+    // ブラウザで開く（アプリと管理コンソールを port-forward して開く。Ctrl+C で終了）
     // NodePort は kind 等では localhost に転送されないため、確実な port-forward を使う。
     if (app.open) {
       gulp.task(`k8s:${app.name}:open`, (done) => {
         requireCluster();
         const local = 18080;
         const url = `http://localhost:${local}${app.open.path}`;
-        const kibanaLocal = 18081;
-        const kibanaUrl = app.kibanaNodePort ? `http://localhost:${kibanaLocal}/` : null;
-        console.log(`[${app.name}] port-forward 中: ${url}（終了は Ctrl+C）`);
-        if (kibanaUrl) {
-          console.log(`[${app.name}] Kibana（ログ可視化）: ${kibanaUrl}   ※index pattern は自動作成済み（開くと Discover が表示される）`);
+        // 追加コンソール（Kibana・RabbitMQ・Axon Server 等）。ローカルポートは 18081 から順に割り当てる。
+        const declared = [];
+        if (app.kibanaNodePort) {
+          declared.push({ label: 'Kibana（ログ可視化）', svc: 'kibana', port: 5601, note: '※index pattern は自動作成済み（開くと Discover が表示される）' });
         }
+        (app.consoles || []).forEach((c) => declared.push({ label: c.label, svc: c.svc, port: c.port, note: c.note || '' }));
+        // 未デプロイのコンソール（svc が存在しない）はスキップして警告する。
+        // これがないと存在しない svc への port-forward が失敗し、ローカルポートが死んでしまう。
+        const consoles = declared.filter((c) => {
+          const found = runCapture(`kubectl -n ${app.namespace} get svc ${c.svc} -o name`);
+          if (!found || !found.trim()) {
+            console.log(`[${app.name}] ${c.label} はスキップ（svc/${c.svc} が未デプロイ）`);
+            return false;
+          }
+          return true;
+        });
+        consoles.forEach((c, i) => {
+          c.local = 18081 + i;
+          c.url = `http://localhost:${c.local}/`;
+        });
+        console.log(`[${app.name}] port-forward 中: ${url}（終了は Ctrl+C）`);
+        consoles.forEach((c) => console.log(`[${app.name}] ${c.label}: ${c.url}${c.note ? '   ' + c.note : ''}`));
         const pf = spawn(
           'kubectl',
           ['-n', app.namespace, 'port-forward', `svc/${app.open.svc}`, `${local}:${app.open.port}`],
           { stdio: 'inherit' }
         );
-        // Kibana も port-forward（NodePort に依存しない）。アプリ終了時に一緒に止める。
-        const kpf = kibanaUrl
-          ? spawn('kubectl', ['-n', app.namespace, 'port-forward', 'svc/kibana', `${kibanaLocal}:5601`], { stdio: 'ignore' })
-          : null;
-        // port-forward の確立を待ってからブラウザを開く（アプリと Kibana の両方）
-        const timer = setTimeout(() => {
-          try {
-            openUrl(url);
-          } catch {
-            console.log(`ブラウザを開けませんでした。${url} を手動で開いてください。`);
-          }
-          if (kibanaUrl) {
-            try {
-              openUrl(kibanaUrl);
-            } catch {
-              console.log(`ブラウザを開けませんでした。${kibanaUrl} を手動で開いてください。`);
+        // 各コンソールも port-forward（NodePort に依存しない）。アプリ終了時に一緒に止める。
+        // stderr を監視し、ポート使用中で bind に失敗したら警告する（古い別 port-forward が
+        // 残っていると、その localhost ポートに別コンソールが繋がったまま見えてしまうため）。
+        const cpfs = consoles.map((c) => {
+          const cp = spawn('kubectl', ['-n', app.namespace, 'port-forward', `svc/${c.svc}`, `${c.local}:${c.port}`], {
+            stdio: ['ignore', 'ignore', 'pipe'],
+          });
+          cp.stderr.on('data', (buf) => {
+            if (/Unable to listen|address already in use|bind/i.test(String(buf))) {
+              console.log(`[${app.name}] 警告: ${c.label} の port-forward に失敗（ポート ${c.local} 使用中）。`);
+              console.log(`         既存の port-forward を停止してから再実行してください: npx gulp killports`);
             }
-          }
+          });
+          return cp;
+        });
+        // port-forward の確立を待ってからブラウザを開く（アプリと各コンソール）
+        const timer = setTimeout(() => {
+          [url, ...consoles.map((c) => c.url)].forEach((u) => {
+            try {
+              openUrl(u);
+            } catch {
+              console.log(`ブラウザを開けませんでした。${u} を手動で開いてください。`);
+            }
+          });
         }, 3000);
         pf.on('exit', () => {
           clearTimeout(timer);
-          if (kpf) {
+          cpfs.forEach((p) => {
             try {
-              kpf.kill();
+              p.kill();
             } catch {
               /* noop */
             }
-          }
+          });
           done();
         });
       });
@@ -449,6 +477,19 @@ export default function (gulp) {
     }
   });
 
+  // 残留している kubectl port-forward プロセスを一括停止する
+  // （Windows では :open を強制終了した際などに port-forward が残り、同じローカルポートを
+  //  握ったままになることがある。次の :open が別コンソールに繋がる事故を防ぐ）
+  gulp.task('k8s:killports', (done) => {
+    const cmd =
+      process.platform === 'win32'
+        ? 'powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq \'kubectl.exe\' -and $_.CommandLine -like \'*port-forward*\' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"'
+        : "pkill -f 'kubectl.*port-forward'";
+    run(cmd, { ignoreError: true });
+    console.log('停止しました: 残留している kubectl port-forward プロセス');
+    done();
+  });
+
   // ヘルプ
   gulp.task('k8s:help', (done) => {
     const lines = APPS.map((a) => {
@@ -466,13 +507,16 @@ ${lines}
     k8s:<name>:apply      Kustomize で適用（frontend は最新ビルドを自動反映）
     k8s:<name>:delete     Kustomize リソースを削除
     k8s:<name>:status     Pod / Service / Ingress を表示
-    k8s:<name>:open       アプリと Kibana を port-forward してブラウザで開く（Ctrl+C で終了）
+    k8s:<name>:open       アプリと管理コンソール（Kibana / RabbitMQ / Axon Server 等）を port-forward して開く（Ctrl+C で終了）
     k8s:<name>:reload     アプリイメージをユニークタグで再ビルドし反映（case1）
     k8s:<name>:reload-frontend  frontend をユニークタグで再ビルドし反映（case2〜4）
     k8s:<name>:build      kubectl kustomize で生成結果を確認
     k8s:<name>:seed       シードデータの投入を確認（投影完了まで待機、cargo 系のみ）
     k8s:<name>:helm       Helm でデプロイ（チャートを持つアプリのみ）
     k8s:<name>:helm:delete  Helm リリースを削除
+
+  共通:
+    k8s:killports         残留している kubectl port-forward プロセスを一括停止
 
   例: npx gulp k8s:case4 で ES/CQRS（Kafka）を Kustomize デプロイ
       npx gulp k8s:case4:helm で同じ構成を Helm デプロイ

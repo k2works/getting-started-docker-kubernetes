@@ -111,6 +111,17 @@ kubectl -n cargo-axon port-forward svc/kibana 18081:5601   # → http://localhos
 
 > 学習・ローカル検証用の単一ノード構成です（ES のセキュリティは無効）。本番では認証・冗長化・リソース調整を行ってください。
 
+## Axon Server ダッシュボード
+
+イベントストア兼コマンド/イベントルーターである Axon Server には Web ダッシュボード（HTTP ポート 8024）が付属し、登録コマンド・イベントの流量、接続中のアプリケーション、保存イベント数などを確認できます。port-forward でアクセスします。
+
+```bash
+kubectl -n cargo-axon port-forward svc/axonserver 18082:8024
+#   → http://localhost:18082/   （Overview / Commands / Queries / Events を確認可能）
+```
+
+> 本構成は `AXONIQ_AXONSERVER_DEVMODE_ENABLED=true` の開発モード（認証なし）です。`npx gulp k8s:case3:open` ではアプリ・Kibana とあわせて自動で開きます。
+
 ## 比較の観点
 
 case-2 と同じく Kustomize 対 Helm ですが、ステートフルなインフラ（Axon Server）が加わることで、両手段が「アプリ群の繰り返し」と「特別な単発インフラ」をどう書き分けるかが論点になります。詳細は第 15 章の記事を参照してください。

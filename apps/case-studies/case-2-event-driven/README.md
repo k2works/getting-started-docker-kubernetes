@@ -89,6 +89,17 @@ kubectl -n cargo-event port-forward svc/kibana 18081:5601   # → http://localho
 
 > 学習・ローカル検証用の単一ノード構成です（ES のセキュリティは無効）。本番では認証・冗長化・リソース調整を行ってください。
 
+## RabbitMQ 管理コンソール
+
+イベント連携に使う RabbitMQ は管理プラグイン入りイメージ（`rabbitmq:3.13-management`）で動作し、キュー・Exchange・メッセージ流量を Web UI で確認できます。コンソール（ポート 15672）へは port-forward でアクセスします。
+
+```bash
+kubectl -n cargo-event port-forward svc/rabbitmq 18082:15672
+#   → http://localhost:18082/   （ログイン: guest / guest）
+```
+
+> `guest` ユーザーはループバック接続限定のため、port-forward 経由（localhost からの接続として扱われる）でログインできます。`npx gulp k8s:case2:open` ではアプリ・Kibana とあわせて自動で開きます。
+
 ## 比較の観点
 
 | 観点 | Kustomize | Helm |
