@@ -17,6 +17,11 @@ resources:
   - gatewayms.yaml
   - frontend.yaml
   - ingress.yaml
+  # ロギング基盤（EFK + DaemonSet）
+  - logging/elasticsearch.yaml
+  - logging/fluentd-daemonset.yaml
+  - logging/kibana.yaml
+  - logging/kibana-setup-job.yaml
 
 configMapGenerator:
   - name: postgres-init

@@ -59,6 +59,30 @@ kubectl -n cargo-monolith exec deploy/postgres -- \
 curl http://localhost:18080/api/v1/bookings    # 8 件の貨物が返る
 ```
 
+## ロギング基盤（EFK + DaemonSet）
+
+[第 9 章 コンテナの運用](../../../docs/article/getting-start-docker-kubernetes/09-container-operations.md) のパターンに沿って、ログ集約基盤 **EFK（Elasticsearch + Fluentd + Kibana）** を同梱しています（`k8s/kustomize/logging/`）。各 Pod は標準出力にログを出し、**Fluentd を DaemonSet として各ノードに常駐**させてノード上の全コンテナのログを収集、Elasticsearch に蓄積し、Kibana で可視化します。
+
+- **Elasticsearch**（単一ノード）: ログの蓄積・検索。PVC で永続化
+- **Fluentd**（DaemonSet）: `/var/log/containers` を収集して ES へ転送。containerd の CRI ログ形式に対応
+- **Kibana**（NodePort 30051）: ログの検索・可視化 UI
+- **kibana-setup**（Job）: index pattern `logstash-*` を自動作成し、既定ビューを Discover に設定（手動設定不要）
+
+```bash
+# ロギング基盤はアプリと同時にデプロイされる（kubectl apply -k k8s/kustomize）
+kubectl -n cargo-monolith get pods -l app.kubernetes.io/component=logging
+
+# 収集状況の確認（logstash-* にログが蓄積される）
+kubectl -n cargo-monolith exec deploy/elasticsearch -- curl -s 'http://localhost:9200/logstash-*/_count'
+
+# Kibana を開く（kind 等では NodePort が localhost に出ないため port-forward が確実）
+kubectl -n cargo-monolith port-forward svc/kibana 18081:5601
+#   → http://localhost:18081/   （開くと Discover が表示され、すぐにログを検索できる）
+#   ※ Docker Desktop 内蔵 k8s など NodePort が localhost に出る環境では http://localhost:30051/ でも可
+```
+
+> 学習・ローカル検証用の単一ノード構成です（ES のセキュリティは無効）。本番では認証・冗長化・リソース調整を行ってください。
+
 ## 比較の観点
 
 | 観点 | Docker Compose | Kustomize |

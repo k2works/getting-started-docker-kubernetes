@@ -1,0 +1,99 @@
+# Fluentd（ログの収集）— DaemonSet パターン
+# EFK スタックの F。各ノードに 1 つずつ常駐し、ノード上の全 Pod の標準出力
+# （/var/log/containers 配下のログファイル）を収集して Elasticsearch へ転送する。
+# Pod のメタデータ付与のため Kubernetes API への読み取り権限（RBAC）を与える。
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fluentd
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  # ClusterRole はクラスタスコープのため、ケース間で衝突しないよう namespace で修飾する
+  name: fluentd-cargo-event
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "namespaces"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fluentd-cargo-event
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: fluentd-cargo-event
+subjects:
+  - kind: ServiceAccount
+    name: fluentd
+    namespace: cargo-event
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluentd
+  labels:
+    app.kubernetes.io/name: fluentd
+    app.kubernetes.io/component: logging
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fluentd
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fluentd
+        app.kubernetes.io/component: logging
+    spec:
+      serviceAccountName: fluentd
+      # 制御プレーンノードにも収集役を常駐させる
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/master
+          effect: NoSchedule
+      containers:
+        - name: fluentd
+          image: fluent/fluentd-kubernetes-daemonset:v1.16-debian-elasticsearch7-1
+          env:
+            - name: FLUENT_ELASTICSEARCH_HOST
+              value: "elasticsearch"
+            - name: FLUENT_ELASTICSEARCH_PORT
+              value: "9200"
+            - name: FLUENT_ELASTICSEARCH_SCHEME
+              value: "http"
+            - name: FLUENT_ELASTICSEARCH_SSL_VERIFY
+              value: "false"
+            # 日付別インデックス logstash-YYYY.MM.DD を作成（Kibana の既定パターン）
+            - name: FLUENT_ELASTICSEARCH_LOGSTASH_PREFIX
+              value: "logstash"
+            # containerd（Docker Desktop / 近年の k8s）の CRI ログ形式をパースする
+            # 形式: "<time> stdout F <message>"。既定の json パーサだと不一致になる
+            - name: FLUENT_CONTAINER_TAIL_PARSER_TYPE
+              value: "/^(?<time>.+) (?<stream>stdout|stderr) (?<logtag>[FP]) (?<log>.*)$/"
+            # Fluentd 自身のログを収集対象から除外し、警告の自己増殖ループを防ぐ
+            - name: FLUENT_CONTAINER_TAIL_EXCLUDE_PATH
+              value: "[\"/var/log/containers/fluentd*\"]"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 768Mi
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log
+            - name: varlibdockercontainers
+              mountPath: /var/lib/docker/containers
+              readOnly: true
+      terminationGracePeriodSeconds: 30
+      volumes:
+        # ノード上のコンテナログ（/var/log/containers, /var/log/pods）を読み取る
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: varlibdockercontainers
+          hostPath:
+            path: /var/lib/docker/containers

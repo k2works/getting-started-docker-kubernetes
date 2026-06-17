@@ -87,6 +87,26 @@ TOKEN=$(curl -s -X POST http://localhost:18080/api/auth/login \
 curl -s http://localhost:18080/api/v1/bookings -H "Authorization: Bearer $TOKEN"   # 3 件
 ```
 
+## ロギング基盤（EFK + DaemonSet）
+
+[第 9 章 コンテナの運用](../../../docs/article/getting-start-docker-kubernetes/09-container-operations.md) のパターンに沿って、ログ集約基盤 **EFK（Elasticsearch + Fluentd + Kibana）** を `base` に同梱しています（`k8s/base/logging/`、local/prod 両 overlay に適用）。各 Pod は標準出力にログを出し、**Fluentd を DaemonSet として各ノードに常駐**させてノード上の全コンテナのログを収集、Elasticsearch に蓄積し、Kibana で可視化します。
+
+- **Elasticsearch**（単一ノード）: ログの蓄積・検索。PVC で永続化
+- **Fluentd**（DaemonSet）: `/var/log/containers` を収集して ES へ転送。containerd の CRI ログ形式に対応
+- **Kibana**（NodePort 30054）: ログの検索・可視化 UI
+- **kibana-setup**（Job）: index pattern `logstash-*` を自動作成し、既定ビューを Discover に設定（手動設定不要）
+
+```bash
+# ロギング基盤はアプリと同時にデプロイされる（kubectl apply -k k8s/overlays/local）
+kubectl -n cargo-tracker get pods -l app.kubernetes.io/component=logging
+kubectl -n cargo-tracker exec deploy/elasticsearch -- curl -s 'http://localhost:9200/logstash-*/_count'
+# Kibana を開く（kind 等では NodePort が localhost に出ないため port-forward が確実）
+kubectl -n cargo-tracker port-forward svc/kibana 18081:5601   # → http://localhost:18081/（開くと Discover が表示される）
+#   ※ NodePort が localhost に出る環境では http://localhost:30054/ でも可
+```
+
+> 学習・ローカル検証用の単一ノード構成です（ES のセキュリティは無効）。本番では認証・冗長化・リソース調整を行ってください。
+
 ## 比較の観点
 
 case-4 は Kustomize に **overlay（base/overlays）** を、Helm に **`_helpers.tpl` による命名・ラベルの共通化**を備えた、より実運用に近い構成です。詳細は第 16 章の記事を参照してください。

@@ -31,6 +31,11 @@ resources:
   - frontendms.yaml
   # 外部公開
   - ingress.yaml
+  # ロギング基盤（EFK + DaemonSet）
+  - logging/elasticsearch.yaml
+  - logging/fluentd-daemonset.yaml
+  - logging/kibana.yaml
+  - logging/kibana-setup-job.yaml
 
 # イメージタグ集中管理（CI でビルドしたイメージに差し替える）
 images:

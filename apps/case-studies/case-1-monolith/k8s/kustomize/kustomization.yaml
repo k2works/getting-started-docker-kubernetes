@@ -9,6 +9,11 @@ resources:
   - postgres.yaml
   - app.yaml
   - ingress.yaml
+  # ロギング基盤（EFK + DaemonSet）
+  - logging/elasticsearch.yaml
+  - logging/fluentd-daemonset.yaml
+  - logging/kibana.yaml
+  - logging/kibana-setup-job.yaml
 
 images:
   - name: cargo-tracker

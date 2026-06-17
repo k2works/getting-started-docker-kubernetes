@@ -1,0 +1,101 @@
+# Elasticsearch（ログの蓄積・検索）
+# EFK スタックの E。Fluentd DaemonSet が収集したログを蓄積し、Kibana が検索する。
+# 学習・ローカル検証用の単一ノード構成（discovery.type=single-node）。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elasticsearch-config
+data:
+  elasticsearch.yml: |
+    cluster.name: cargo-logging
+    network.host: 0.0.0.0
+    discovery.type: single-node
+    # 学習用途のためセキュリティ機能は無効化（本番では有効化すること）
+    xpack.security.enabled: false
+    xpack.ml.enabled: false
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: elasticsearch-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+  labels:
+    app.kubernetes.io/name: elasticsearch
+spec:
+  selector:
+    app.kubernetes.io/name: elasticsearch
+  ports:
+    - name: http
+      protocol: TCP
+      port: 9200
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch
+  labels:
+    app.kubernetes.io/name: elasticsearch
+spec:
+  replicas: 1
+  # 単一インスタンス + RWO PVC のため、更新時は旧 Pod を終了してから新 Pod を起動する
+  # （RollingUpdate だと 2 Pod が同じデータディレクトリを奪い合い node lock 失敗になる）
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: elasticsearch
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: elasticsearch
+    spec:
+      # マウントした PVC を ES プロセス（uid 1000）が書き込めるようにする
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: elasticsearch
+          image: docker.elastic.co/elasticsearch/elasticsearch:7.17.22
+          env:
+            - name: ES_JAVA_OPTS
+              value: "-Xms512m -Xmx512m"
+          ports:
+            - name: http
+              containerPort: 9200
+          resources:
+            requests:
+              cpu: 200m
+              memory: 1Gi
+            # heap 512m に加え Lucene の mmap・ダイレクトバッファ等のオフヒープが必要なため、
+            # コンテナ上限は heap の約 3〜4 倍を確保する（不足すると OOMKilled になる）
+            limits:
+              memory: 2Gi
+          readinessProbe:
+            httpGet:
+              path: /_cluster/health?local=true
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /usr/share/elasticsearch/data
+            - name: config
+              mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
+              subPath: elasticsearch.yml
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: elasticsearch-pvc
+        - name: config
+          configMap:
+            name: elasticsearch-config
