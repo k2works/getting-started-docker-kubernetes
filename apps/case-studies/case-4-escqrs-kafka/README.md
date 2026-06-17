@@ -107,6 +107,17 @@ kubectl -n cargo-tracker port-forward svc/kibana 18081:5601   # → http://local
 
 > 学習・ローカル検証用の単一ノード構成です（ES のセキュリティは無効）。本番では認証・冗長化・リソース調整を行ってください。
 
+## Kafka UI
+
+イベントバックボーンの Kafka を可視化する **Kafka UI**（`provectuslabs/kafka-ui`）を同梱しています（`k8s/base/kafka-ui.yaml`）。トピック・メッセージ内容・コンシューマグループ・ラグなどを Web UI（ポート 8080）で確認できます。`kafka:29092` に接続し、ES/CQRS のイベントトピック（`cargo-events`）の流量を観察できます。
+
+```bash
+kubectl -n cargo-tracker port-forward svc/kafka-ui 18082:8080
+#   → http://localhost:18082/   （認証なし。Topics → cargo-events でメッセージを確認）
+```
+
+> `npx gulp k8s:case4:open` ではアプリ・Kibana とあわせて自動で開きます。認証は無効（`AUTH_TYPE=DISABLED`）の学習用構成です。
+
 ## 比較の観点
 
 case-4 は Kustomize に **overlay（base/overlays）** を、Helm に **`_helpers.tpl` による命名・ラベルの共通化**を備えた、より実運用に近い構成です。詳細は第 16 章の記事を参照してください。

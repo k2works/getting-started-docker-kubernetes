@@ -18,6 +18,7 @@ resources:
   # インフラ（クラスタ内）
   - zookeeper.yaml
   - kafka.yaml
+  - kafka-ui.yaml
   - postgresql.yaml
   # マイクロサービス
   - authms.yaml
