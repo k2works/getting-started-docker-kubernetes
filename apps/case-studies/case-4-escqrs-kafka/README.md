@@ -65,6 +65,28 @@ helm install cargo apps/case-studies/case-4-escqrs-kafka/helm/cargo-tracker \
 helm uninstall cargo -n cargo-tracker
 ```
 
+## シードデータの動作確認
+
+デモ用シードは各 ms の `DevDataSeeder` が投入します。`dev-seed` プロファイルで発火し、荷主 3・予約 3 を Kafka/ES 経由で登録します（読み取りモデル `cargo_summary` への投影は非同期のため数秒待ちます）。固定 ID で既存チェックする冪等実装のため、Pod 再起動でも重複しません。
+
+`dev-seed` は **`overlays/local`（および Helm の既定 `values.yaml`）でのみ**有効です。本番想定の `overlays/prod` は `local-docker` のみのためシードされません（Helm で本番投入する場合は `--set config.springProfilesActive=local-docker` で無効化）。
+
+```bash
+# 投入ログの確認（任意）
+kubectl -n cargo-tracker logs deploy/bookingms | grep -i seed
+
+# ① DB で確認（postgresql は StatefulSet → pod 名は postgresql-0、投影完了まで数秒待つ）
+kubectl -n cargo-tracker exec postgresql-0 -- \
+  psql -U cargo -d booking_read_db -c "SELECT count(*) FROM cargo_summary;"   # => 3
+
+# ② REST API で確認（NodePort 30080 または port-forward、要ログイン: admin / password）
+kubectl -n cargo-tracker port-forward svc/gatewayms 18080:8080
+TOKEN=$(curl -s -X POST http://localhost:18080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"password"}' | jq -r '.token // .accessToken')
+curl -s http://localhost:18080/api/v1/bookings -H "Authorization: Bearer $TOKEN"   # 3 件
+```
+
 ## 比較の観点
 
 case-4 は Kustomize に **overlay（base/overlays）** を、Helm に **`_helpers.tpl` による命名・ラベルの共通化**を備えた、より実運用に近い構成です。詳細は第 16 章の記事を参照してください。

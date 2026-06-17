@@ -17,3 +17,13 @@ patches:
       - op: add
         path: /spec/ports/0/nodePort
         value: 30080
+  # dev-seed プロファイルを有効化し、各 ms の DevDataSeeder でデモデータを投入する
+  # （case-2 と同様に k8s 環境を空でない状態にする。冪等のため再起動で重複しない）
+  # 本番想定の prod overlay には付与せず、ローカル検証時のみシードする。
+  - target:
+      kind: ConfigMap
+      name: cargo-config
+    patch: |-
+      - op: replace
+        path: /data/SPRING_PROFILES_ACTIVE
+        value: local-docker,dev-seed

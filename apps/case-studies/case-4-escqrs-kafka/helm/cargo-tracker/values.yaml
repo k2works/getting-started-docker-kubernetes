@@ -11,7 +11,10 @@ image:
 
 # 各 ms 共通の非機密設定（ConfigMap cargo-config に展開）
 config:
-  springProfilesActive: local-docker
+  # dev-seed を含めると各 ms の DevDataSeeder がデモデータを投入する
+  # （case-2 と同様に k8s 環境を空でない状態にする。冪等のため再起動で重複しない）。
+  # 本番では --set config.springProfilesActive=local-docker で無効化すること。
+  springProfilesActive: local-docker,dev-seed
   kafkaBootstrap: kafka:29092
   sendgridFromEmail: noreply@cargo-tracker.example.com
   sendgridFromName: Cargo Tracker
