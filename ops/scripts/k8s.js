@@ -65,8 +65,12 @@ const APPS = [
     label: 'ケーススタディ1 モノリス',
     kustomize: 'apps/case-studies/case-1-monolith/k8s/kustomize',
     namespace: 'cargo-monolith',
-    endpoints: ['kubectl -n cargo-monolith port-forward svc/cargo-tracker 18080:80 → /actuator/health'],
+    endpoints: [
+      'kubectl -n cargo-monolith port-forward svc/cargo-tracker 18080:80 → /actuator/health',
+      'Kibana（ログ可視化）: kubectl -n cargo-monolith port-forward svc/kibana 18081:5601 → http://localhost:18081/（index pattern は自動作成済み。開くと Discover が表示される）',
+    ],
     open: { svc: 'cargo-tracker', port: 80, path: '/' },
+    kibanaNodePort: 30051,
     // apply 時にアプリイメージをユニークタグで再ビルドして反映する（同タグ 0.0.1 のキャッシュ回避）
     // これにより delete → apply で最新ソース（Flyway V16 のシード含む）が確実にデプロイされる
     appImage: {
@@ -91,8 +95,12 @@ const APPS = [
     kustomize: 'apps/case-studies/case-2-event-driven/k8s/kustomize/base',
     namespace: 'cargo-event',
     helm: { chart: 'apps/case-studies/case-2-event-driven/helm/cargo-event', release: 'cargo-event' },
-    endpoints: ['kubectl -n cargo-event port-forward svc/gatewayms 18080:8080 → /actuator/health'],
+    endpoints: [
+      'kubectl -n cargo-event port-forward svc/gatewayms 18080:8080 → /actuator/health',
+      'Kibana（ログ可視化）: kubectl -n cargo-event port-forward svc/kibana 18081:5601 → http://localhost:18081/（index pattern は自動作成済み。開くと Discover が表示される）',
+    ],
     open: { svc: 'frontend', port: 80, path: '/' },
+    kibanaNodePort: 30052,
     frontend: { dep: 'frontend', container: 'frontend', repo: 'cargo2-frontend', context: 'apps/case-studies/case-2-event-driven/frontend' },
     // シードは Flyway（V4__seed_cargos.sql 等）でデプロイ時に自動投入される
     seed: {
@@ -110,8 +118,12 @@ const APPS = [
     kustomize: 'apps/case-studies/case-3-escqrs-axon/k8s/kustomize/base',
     namespace: 'cargo-axon',
     helm: { chart: 'apps/case-studies/case-3-escqrs-axon/helm/cargo-axon', release: 'cargo-axon' },
-    endpoints: ['kubectl -n cargo-axon port-forward svc/gatewayms 18080:8080 → /actuator/health'],
+    endpoints: [
+      'kubectl -n cargo-axon port-forward svc/gatewayms 18080:8080 → /actuator/health',
+      'Kibana（ログ可視化）: kubectl -n cargo-axon port-forward svc/kibana 18081:5601 → http://localhost:18081/（index pattern は自動作成済み。開くと Discover が表示される）',
+    ],
     open: { svc: 'frontend', port: 80, path: '/' },
+    kibanaNodePort: 30053,
     frontend: { dep: 'frontend', container: 'frontend', repo: 'cargo3-frontend', context: 'apps/case-studies/case-3-escqrs-axon/frontend' },
     // シードは DemoDataSeeder（local-docker プロファイル）が起動時に Axon コマンドで投入。投影は非同期
     seed: {
@@ -129,8 +141,12 @@ const APPS = [
     kustomize: 'apps/case-studies/case-4-escqrs-kafka/k8s/overlays/local',
     namespace: 'cargo-tracker',
     helm: { chart: 'apps/case-studies/case-4-escqrs-kafka/helm/cargo-tracker', release: 'cargo' },
-    endpoints: ['kubectl -n cargo-tracker port-forward svc/gatewayms 18080:8080 → /actuator/health'],
+    endpoints: [
+      'kubectl -n cargo-tracker port-forward svc/gatewayms 18080:8080 → /actuator/health',
+      'Kibana（ログ可視化）: kubectl -n cargo-tracker port-forward svc/kibana 18081:5601 → http://localhost:18081/（index pattern は自動作成済み。開くと Discover が表示される）',
+    ],
     open: { svc: 'frontendms', port: 80, path: '/' },
+    kibanaNodePort: 30054,
     frontend: { dep: 'frontendms', container: 'frontendms', repo: 'cargo-tracker/frontendms', context: 'apps/case-studies/case-4-escqrs-kafka/frontend' },
     // シードは DevDataSeeder（dev-seed プロファイル、overlays/local）が起動時に投入。投影は非同期
     // postgresql は StatefulSet のため Pod 名 postgresql-0 を直接指定する
@@ -324,28 +340,52 @@ export default function (gulp) {
       });
     }
 
-    // ブラウザで開く（port-forward しながらブラウザを起動。Ctrl+C で終了）
+    // ブラウザで開く（アプリと Kibana を port-forward して開く。Ctrl+C で終了）
+    // NodePort は kind 等では localhost に転送されないため、確実な port-forward を使う。
     if (app.open) {
       gulp.task(`k8s:${app.name}:open`, (done) => {
         requireCluster();
         const local = 18080;
         const url = `http://localhost:${local}${app.open.path}`;
+        const kibanaLocal = 18081;
+        const kibanaUrl = app.kibanaNodePort ? `http://localhost:${kibanaLocal}/` : null;
         console.log(`[${app.name}] port-forward 中: ${url}（終了は Ctrl+C）`);
+        if (kibanaUrl) {
+          console.log(`[${app.name}] Kibana（ログ可視化）: ${kibanaUrl}   ※index pattern は自動作成済み（開くと Discover が表示される）`);
+        }
         const pf = spawn(
           'kubectl',
           ['-n', app.namespace, 'port-forward', `svc/${app.open.svc}`, `${local}:${app.open.port}`],
           { stdio: 'inherit' }
         );
-        // port-forward の確立を待ってからブラウザを開く
+        // Kibana も port-forward（NodePort に依存しない）。アプリ終了時に一緒に止める。
+        const kpf = kibanaUrl
+          ? spawn('kubectl', ['-n', app.namespace, 'port-forward', 'svc/kibana', `${kibanaLocal}:5601`], { stdio: 'ignore' })
+          : null;
+        // port-forward の確立を待ってからブラウザを開く（アプリと Kibana の両方）
         const timer = setTimeout(() => {
           try {
             openUrl(url);
           } catch {
             console.log(`ブラウザを開けませんでした。${url} を手動で開いてください。`);
           }
+          if (kibanaUrl) {
+            try {
+              openUrl(kibanaUrl);
+            } catch {
+              console.log(`ブラウザを開けませんでした。${kibanaUrl} を手動で開いてください。`);
+            }
+          }
         }, 3000);
         pf.on('exit', () => {
           clearTimeout(timer);
+          if (kpf) {
+            try {
+              kpf.kill();
+            } catch {
+              /* noop */
+            }
+          }
           done();
         });
       });
@@ -426,7 +466,7 @@ ${lines}
     k8s:<name>:apply      Kustomize で適用（frontend は最新ビルドを自動反映）
     k8s:<name>:delete     Kustomize リソースを削除
     k8s:<name>:status     Pod / Service / Ingress を表示
-    k8s:<name>:open       port-forward してブラウザで開く（Ctrl+C で終了）
+    k8s:<name>:open       アプリと Kibana を port-forward してブラウザで開く（Ctrl+C で終了）
     k8s:<name>:reload     アプリイメージをユニークタグで再ビルドし反映（case1）
     k8s:<name>:reload-frontend  frontend をユニークタグで再ビルドし反映（case2〜4）
     k8s:<name>:build      kubectl kustomize で生成結果を確認
