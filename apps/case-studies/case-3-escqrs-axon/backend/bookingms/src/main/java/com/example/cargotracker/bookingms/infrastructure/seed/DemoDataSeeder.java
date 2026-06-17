@@ -11,6 +11,7 @@ import com.example.cargotracker.bookingms.domain.model.valueobjects.RouteSpecifi
 import com.example.cargotracker.bookingms.domain.model.valueobjects.ShipperId;
 import com.example.cargotracker.bookingms.domain.model.valueobjects.TemperatureCondition;
 import com.example.cargotracker.bookingms.domain.ports.ShipperRepository;
+import com.example.cargotracker.bookingms.infrastructure.persistence.CargoSummaryMapper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -23,37 +24,43 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /**
- * Heroku プロファイル起動時にサンプルシードデータを投入する {@link ApplicationRunner}。
+ * デモ用シードデータを投入する {@link ApplicationRunner}。
  *
- * <p>荷主 5 件・予約 5 件を登録する。既に登録済みの場合はスキップして
- * 二重登録を防ぐ。</p>
+ * <p>荷主 5 件・予約 5 件を登録する。Heroku（PaaS）と k8s（{@code local-docker}）の
+ * 両プロファイルで起動時に発火し、case-2 と同様にデモ環境を空でない状態にする。</p>
+ *
+ * <p>冪等性: 荷主はメールアドレスで、予約は {@code cargo_summary} Read Model の
+ * 既存件数で重複投入を防ぐ。これにより Pod 再起動のたびに予約が増殖しない。</p>
  */
 @Component
-@Profile("heroku")
-public class HerokuDataSeeder implements ApplicationRunner {
+@Profile({"heroku", "local-docker"})
+public class DemoDataSeeder implements ApplicationRunner {
 
-    private static final Logger LOG = LoggerFactory.getLogger(HerokuDataSeeder.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DemoDataSeeder.class);
     private static final String CORPORATE = "CORPORATE";
 
     private final ShipperCommandService shipperCommandService;
     private final ShipperRepository shipperRepository;
     private final CommandGateway commandGateway;
+    private final CargoSummaryMapper cargoSummaryMapper;
 
-    public HerokuDataSeeder(
+    public DemoDataSeeder(
             ShipperCommandService shipperCommandService,
             ShipperRepository shipperRepository,
-            CommandGateway commandGateway) {
+            CommandGateway commandGateway,
+            CargoSummaryMapper cargoSummaryMapper) {
         this.shipperCommandService = shipperCommandService;
         this.shipperRepository = shipperRepository;
         this.commandGateway = commandGateway;
+        this.cargoSummaryMapper = cargoSummaryMapper;
     }
 
     @Override
     public void run(ApplicationArguments args) {
-        LOG.info("[seed] Heroku シードデータ投入開始");
+        LOG.info("[seed] デモシードデータ投入開始");
         var shipperIds = seedShippers();
         seedBookings(shipperIds);
-        LOG.info("[seed] Heroku シードデータ投入完了");
+        LOG.info("[seed] デモシードデータ投入完了");
     }
 
     private List<Long> seedShippers() {
@@ -87,6 +94,12 @@ public class HerokuDataSeeder implements ApplicationRunner {
     }
 
     private void seedBookings(List<Long> shipperIds) {
+        // 冪等性: cargo_summary Read Model に既存の予約があればスキップ（再起動時の重複防止）
+        if (!cargoSummaryMapper.findAll().isEmpty()) {
+            LOG.info("[seed] 予約スキップ（既存データあり）");
+            return;
+        }
+
         record BookingDef(int shipperIndex, CargoSpecification cargoSpec, RouteSpecification routeSpec) {}
 
         var defs = List.of(
