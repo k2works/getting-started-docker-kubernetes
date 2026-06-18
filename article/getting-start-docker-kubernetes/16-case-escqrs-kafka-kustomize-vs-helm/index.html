@@ -1128,10 +1128,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4" class="md-nav__link">
+  <a href="#4-efk-daemonset" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. 比較考察
+        4. ロギング基盤（EFK + DaemonSet）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. 比較考察
       
     </span>
   </a>
@@ -1623,7 +1634,30 @@ helm<span class="w"> </span>install<span class="w"> </span>cargo<span class="w">
 </code></pre></div>
 <p>Helm 版も 11 ワークロードが <code>1/1 Running</code> になり、ゲートウェイ経由の read エンドポイントが <code>200</code> を返すことを確認しました。</p>
 <hr />
-<h2 id="4">4. 比較考察<a class="headerlink" href="#4" title="Permanent link">&para;</a></h2>
+<h2 id="4-efk-daemonset">4. ロギング基盤（EFK + DaemonSet）<a class="headerlink" href="#4-efk-daemonset" title="Permanent link">&para;</a></h2>
+<p><a href="../09-container-operations/">第 9 章</a> の <strong>EFK（Elasticsearch + Fluentd + Kibana）+ DaemonSet</strong> によるログ集約パターンを、本ケースにも実装として組み込んでいます（<a href="../13-case-monolith-compose-vs-kustomize/">第 13 章</a> と同じ構成）。各 Pod は標準出力にログを出すだけで、各ノードに常駐する Fluentd がノード上の全 Pod のログを収集し、Elasticsearch に蓄積、Kibana で可視化します。</p>
+<p>base に <code>logging/</code> の 4 ファイルを置き、<code>k8s/base/kustomization.yaml</code> の <code>resources</code> に追加しています（local/prod 両 overlay に含まれます）。</p>
+<div class="highlight"><pre><span></span><code>logging/
+├── elasticsearch.yaml      # ConfigMap + PVC + Service + Deployment（単一ノード）
+├── fluentd-daemonset.yaml  # ServiceAccount + ClusterRole/Binding + DaemonSet
+├── kibana.yaml             # Deployment + Service（NodePort 30054）
+└── kibana-setup-job.yaml   # index pattern logstash-* を自動作成する Job
+</code></pre></div>
+<p>実装上の勘所は第 13 章と共通です。</p>
+<ul>
+<li><strong>Fluentd</strong>: <code>hostPath</code> で <code>/var/log/containers</code> を読み取る。containerd の CRI ログ形式に合わせて <code>FLUENT_CONTAINER_TAIL_PARSER_TYPE</code> を指定（既定の json だと不一致）。ClusterRole はケース間で衝突しないよう <code>fluentd-cargo-tracker</code> に修飾</li>
+<li><strong>Elasticsearch</strong>: RWO PVC のため <code>strategy: Recreate</code>、heap の 3〜4 倍（2Gi）のメモリ上限で OOM を回避</li>
+<li><strong>Kibana</strong>: <code>kibana-setup</code> Job が index pattern と既定ビュー（Discover）を自動設定し、開いたらすぐ使える</li>
+</ul>
+<p>Kafka をイベントバックボーンとする本ケースでは、各サービスのアプリログ（Fluentd → Kibana）と、トピックを流れるメッセージそのもの（Kafka UI）を併用すると、イベント駆動の挙動を多面的に観測できます。base に置いているため <code>overlays/local</code>・<code>overlays/prod</code> のどちらでもロギング基盤が含まれます。</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># アプリと同時にデプロイされる（kubectl apply -k k8s/overlays/local）</span>
+kubectl<span class="w"> </span>-n<span class="w"> </span>cargo-tracker<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>logging
+kubectl<span class="w"> </span>-n<span class="w"> </span>cargo-tracker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>deploy/elasticsearch<span class="w"> </span>--<span class="w"> </span>curl<span class="w"> </span>-s<span class="w"> </span><span class="s1">&#39;http://localhost:9200/logstash-*/_count&#39;</span>
+<span class="c1"># Kibana を開く（kind では NodePort が localhost に出ないため port-forward が確実）</span>
+kubectl<span class="w"> </span>-n<span class="w"> </span>cargo-tracker<span class="w"> </span>port-forward<span class="w"> </span>svc/kibana<span class="w"> </span><span class="m">18081</span>:5601<span class="w">   </span><span class="c1"># → http://localhost:18081/</span>
+</code></pre></div>
+<hr />
+<h2 id="5">5. 比較考察<a class="headerlink" href="#5" title="Permanent link">&para;</a></h2>
 <p>case-4 は、Kustomize・Helm の両方が「実運用を意識した成熟度」に達しています。ここまでの章の知見と合わせて、両手段の到達点を整理します。</p>
 <table>
 <thead>
@@ -1675,6 +1709,7 @@ helm<span class="w"> </span>install<span class="w"> </span>cargo<span class="w">
 <li>Kafka ES/CQRS 版 Cargo Tracker（Kafka + ZooKeeper + PostgreSQL〔StatefulSet〕+ 6 サービス + gateway + frontendms）を Kustomize（overlays/local）と Helm の両方でデプロイし、11 ワークロードが <code>1/1 Running</code>、ゲートウェイ経由の read エンドポイントが <code>200</code> を返すことを確認しました</li>
 <li>Kustomize は base + overlay で環境差分を宣言的に管理し、Helm は <code>_helpers.tpl</code> + values でテンプレートを成熟させます</li>
 <li>成熟したプロジェクトでは両手段を併用し、GitOps（overlay）と配布（チャート）で使い分けることも現実的です</li>
+<li>第 9 章の EFK + DaemonSet を base に組み込み、local/prod 両 overlay で各サービスのログを Fluentd（DaemonSet）→ Kibana で観測できるようにしました</li>
 <li>次章では、第 13〜16 章の 4 ケースを横断し、アーキテクチャとデプロイ手段の関係を総括します</li>
 </ul>
 <hr />

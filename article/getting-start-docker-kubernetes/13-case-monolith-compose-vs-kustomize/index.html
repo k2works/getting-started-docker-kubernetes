@@ -1055,10 +1055,60 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5" class="md-nav__link">
+  <a href="#5-efk-daemonset" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. 比較考察
+        5. ロギング基盤（EFK + DaemonSet）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. ロギング基盤（EFK + DaemonSet）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fluentd-daemonset" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fluentd を DaemonSet で常駐させる
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#elasticsearch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Elasticsearch の運用上の勘所
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#kibana" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Kibana を「開いたらすぐ使える」状態にする
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. 比較考察
       
     </span>
   </a>
@@ -1701,7 +1751,50 @@ curl<span class="w"> </span>http://localhost:18081/actuator/health
 </ul>
 <p>どちらも「共通部分 + 差分」という構造は同じですが、Kustomize は Kubernetes リソースのフィールド単位でパッチを当てられる点が強力です。</p>
 <hr />
-<h2 id="5">5. 比較考察<a class="headerlink" href="#5" title="Permanent link">&para;</a></h2>
+<h2 id="5-efk-daemonset">5. ロギング基盤（EFK + DaemonSet）<a class="headerlink" href="#5-efk-daemonset" title="Permanent link">&para;</a></h2>
+<p><a href="../09-container-operations/">第 9 章</a> で原則として学んだ <strong>EFK（Elasticsearch + Fluentd + Kibana）+ DaemonSet</strong> のログ集約パターンを、本ケースにも実装として組み込んでいます。各 Pod は標準出力にログを出すだけで、ノード単位で常駐する Fluentd がそれを収集し、Elasticsearch に蓄積、Kibana で検索・可視化します。</p>
+<p><code>k8s/kustomize/logging/</code> に次の 4 ファイルを置き、<code>kustomization.yaml</code> の <code>resources</code> に追加しています。</p>
+<div class="highlight"><pre><span></span><code>logging/
+├── elasticsearch.yaml      # ConfigMap + PVC + Service + Deployment（単一ノード）
+├── fluentd-daemonset.yaml  # ServiceAccount + ClusterRole/Binding + DaemonSet
+├── kibana.yaml             # Deployment + Service（NodePort 30051）
+└── kibana-setup-job.yaml   # index pattern を自動作成する Job
+</code></pre></div>
+<h3 id="fluentd-daemonset">Fluentd を DaemonSet で常駐させる<a class="headerlink" href="#fluentd-daemonset" title="Permanent link">&para;</a></h3>
+<p>第 9 章のとおり、Fluentd は各ノードの <code>/var/log/containers</code> を <code>hostPath</code> で読み取り、ノード上の全 Pod のログをまとめて収集します。ここで本実装固有の要点が <strong>ログ形式のパース</strong>です。近年の Kubernetes（kind / Docker Desktop など）は containerd を使い、ログが CRI 形式（<code>&lt;time&gt; stdout F &lt;message&gt;</code>）で書かれます。Fluentd 既定の JSON パーサのままだと一致せず警告が出続けるため、環境変数で CRI 用のパーサを指定します。</p>
+<div class="highlight"><pre><span></span><code><span class="w">          </span><span class="nt">env</span><span class="p">:</span>
+<span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">FLUENT_ELASTICSEARCH_HOST</span>
+<span class="w">              </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;elasticsearch&quot;</span>
+<span class="w">            </span><span class="c1"># containerd の CRI ログ形式に合わせる（既定の json だと不一致になる）</span>
+<span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">FLUENT_CONTAINER_TAIL_PARSER_TYPE</span>
+<span class="w">              </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/^(?&lt;time&gt;.+)</span><span class="nv"> </span><span class="s">(?&lt;stream&gt;stdout|stderr)</span><span class="nv"> </span><span class="s">(?&lt;logtag&gt;[FP])</span><span class="nv"> </span><span class="s">(?&lt;log&gt;.*)$/&quot;</span>
+</code></pre></div>
+<p>DaemonSet は Kubernetes API から Pod のメタデータを付与するため、<code>ServiceAccount</code> と読み取り専用の <code>ClusterRole</code>（<code>pods</code>・<code>namespaces</code> への get/list/watch）を与えています。ClusterRole はクラスタスコープのため、ケース間で名前が衝突しないよう <code>fluentd-cargo-monolith</code> のように namespace で修飾しています。</p>
+<h3 id="elasticsearch">Elasticsearch の運用上の勘所<a class="headerlink" href="#elasticsearch" title="Permanent link">&para;</a></h3>
+<p>ログは蓄積されるデータなので <code>PersistentVolumeClaim</code> で永続化します。学習用の単一ノード構成（<code>discovery.type=single-node</code>）ですが、2 点の実運用上の注意があります。</p>
+<ul>
+<li><strong>メモリ</strong>: JVM heap（<code>-Xms512m -Xmx512m</code>）に加え、Lucene の mmap やダイレクトバッファなどのオフヒープが必要です。コンテナのメモリ上限を heap と同程度にすると OOMKilled になるため、<code>limits.memory</code> は heap の 3〜4 倍（2Gi）を確保します。</li>
+<li><strong>更新戦略</strong>: 単一インスタンスが RWO の PVC を握るため、<code>strategy: Recreate</code> を指定します。既定の RollingUpdate だと旧 Pod の終了前に新 Pod が起動し、同じデータディレクトリを奪い合って <code>failed to obtain node locks</code> で起動に失敗します。</li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">replicas</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="w">  </span><span class="nt">strategy</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Recreate</span><span class="w">          </span><span class="c1"># RWO PVC のため旧 Pod を終了してから新 Pod を起動</span>
+</code></pre></div>
+<h3 id="kibana">Kibana を「開いたらすぐ使える」状態にする<a class="headerlink" href="#kibana" title="Permanent link">&para;</a></h3>
+<p>Kibana は通常、初回に手動で index pattern を作成する必要があります。これを <code>kibana-setup</code> という <code>Job</code> で自動化し、Kibana の起動を待って index pattern <code>logstash-*</code> を作成、既定ビューを Discover に設定します。デプロイ後にブラウザを開けば、設定なしでログ検索を始められます。</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># ロギング基盤はアプリと同時にデプロイされる（kubectl apply -k k8s/kustomize）</span>
+kubectl<span class="w"> </span>-n<span class="w"> </span>cargo-monolith<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>logging
+
+<span class="c1"># 収集状況の確認（logstash-* にログが蓄積される）</span>
+kubectl<span class="w"> </span>-n<span class="w"> </span>cargo-monolith<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>deploy/elasticsearch<span class="w"> </span>--<span class="w"> </span>curl<span class="w"> </span>-s<span class="w"> </span><span class="s1">&#39;http://localhost:9200/logstash-*/_count&#39;</span>
+
+<span class="c1"># Kibana を開く（kind では NodePort が localhost に出ないため port-forward が確実）</span>
+kubectl<span class="w"> </span>-n<span class="w"> </span>cargo-monolith<span class="w"> </span>port-forward<span class="w"> </span>svc/kibana<span class="w"> </span><span class="m">18081</span>:5601<span class="w">   </span><span class="c1"># → http://localhost:18081/</span>
+</code></pre></div>
+<p>第 9 章で原則として学んだ EFK + DaemonSet を、各ケースの構成に組み込むことで、デプロイした瞬間からアプリ・インフラ双方のログを一元的に観測できます。</p>
+<hr />
+<h2 id="6">6. 比較考察<a class="headerlink" href="#6" title="Permanent link">&para;</a></h2>
 <p>モノリス（アプリ 1 + DB 1）という小さな構成では、両手段の差は次のように整理できます。</p>
 <table>
 <thead>
@@ -1768,6 +1861,7 @@ curl<span class="w"> </span>http://localhost:18081/actuator/health
 <li>モノリス版 Cargo Tracker（Spring Boot + PostgreSQL）を Docker Compose と Kustomize の両方でデプロイし、いずれも <code>/actuator/health</code> が UP になることを確認しました</li>
 <li>Compose の <code>environment</code>・named volume・<code>ports</code>・<code>healthcheck</code> は、Kubernetes ではそれぞれ <code>Secret</code>・PVC・<code>Service</code>/<code>Ingress</code>・<code>Probe</code> に対応します</li>
 <li>構成要素が少ないモノリスでは、Compose の簡潔さと Kustomize の運用機能のトレードオフは緩やかです</li>
+<li>第 9 章の EFK + DaemonSet を本ケースに組み込み、Fluentd（DaemonSet）→ Elasticsearch → Kibana のログ集約を <code>k8s/kustomize/logging/</code> で宣言しました（CRI ログ対応・ES の Recreate 戦略・index pattern の自動作成が実装上の勘所）</li>
 <li>次章では、構成要素が大幅に増えるイベント駆動マイクロサービス（case-2）を題材に、Kustomize と Helm を比較します</li>
 </ul>
 <hr />
