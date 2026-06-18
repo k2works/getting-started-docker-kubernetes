@@ -28,6 +28,15 @@ spec:
       labels:
         app: bookingms
     spec:
+      # Kafka が起動してから本体を起動する。これがないと DevDataSeeder が
+      # 起動直後に走り、Kafka 未起動で producer 構築に失敗してシードされない。
+      initContainers:
+        - name: wait-for-kafka
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - 'until nc -w 2 kafka 29092 < /dev/null; do echo "waiting for kafka:29092"; sleep 3; done; echo "kafka ready"; sleep 5'
       containers:
         - name: bookingms
           image: cargo-tracker/bookingms:latest
