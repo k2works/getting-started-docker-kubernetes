@@ -90,6 +90,11 @@ const APPS = [
       detail: 'SELECT booking_status, count(*) FROM cargo GROUP BY booking_status ORDER BY 1;',
       expect: '貨物 8（CONFIRMED 3 / PRELIMINARY 3 / ROUTE_PROPOSED 2）',
     },
+    // DB リセット: スキーマを drop → アプリ再起動で Flyway が全マイグレーション（V16 シード含む）を再適用
+    reset: {
+      databases: ['cargo_tracker'],
+      restart: ['cargo-tracker'],
+    },
   },
   {
     name: 'case2',
@@ -118,6 +123,11 @@ const APPS = [
       table: 'cargo',
       detail: 'SELECT booking_status, count(*) FROM cargo GROUP BY booking_status ORDER BY 1;',
       expect: '貨物 8（CONFIRMED 3 / PRELIMINARY 3 / ROUTE_PROPOSED 2）',
+    },
+    // DB リセット: 6 つのサービス DB のスキーマを drop → 各 ms 再起動で Flyway がシード再適用
+    reset: {
+      databases: ['auth_db', 'booking_db', 'routing_db', 'tracking_db', 'handling_db', 'billing_db'],
+      restart: ['authms', 'bookingms', 'routingms', 'trackingms', 'handlingms', 'billingms'],
     },
   },
   {
@@ -148,6 +158,12 @@ const APPS = [
       detail: 'SELECT booking_status, count(*) FROM cargo_summary GROUP BY booking_status ORDER BY 1;',
       expect: '予約 5',
     },
+    // DB リセット: read DB スキーマを drop ＋ axonserver 再起動でイベントストア（ephemeral）も消去 →
+    // ms 再起動で DemoDataSeeder が空のイベントストアに対して再投入（重複を防ぐ）
+    reset: {
+      databases: ['auth_db', 'booking_read_db', 'routing_read_db', 'tracking_read_db', 'handling_read_db', 'billing_read_db'],
+      restart: ['axonserver', 'authms', 'bookingms', 'routingms', 'trackingms', 'handlingms', 'billingms'],
+    },
   },
   {
     name: 'case4',
@@ -177,6 +193,12 @@ const APPS = [
       table: 'cargo_summary',
       detail: 'SELECT booking_status, count(*) FROM cargo_summary GROUP BY booking_status ORDER BY 1;',
       expect: '予約 3',
+    },
+    // DB リセット: read DB スキーマを drop → ms 再起動で Flyway 再作成 + DevDataSeeder 再投入
+    // （Kafka のコンシューマオフセットは保持されるため、新しいシードのみが投影される）
+    reset: {
+      databases: ['auth_db', 'booking_read_db', 'routing_read_db', 'tracking_read_db', 'handling_read_db', 'billing_read_db'],
+      restart: ['authms', 'bookingms', 'routingms', 'trackingms', 'handlingms', 'billingms'],
     },
   },
 ];
@@ -283,6 +305,35 @@ function reloadFrontend(app) {
 /** アプリ（バックエンド）イメージをユニークタグで再ビルドして反映する（app.appImage が必要） */
 function reloadApp(app) {
   rebuildAndSetImage(app, app.appImage, 'アプリ');
+}
+
+/**
+ * シードデータの投入を確認する（読み取りモデルへの投影完了まで最大 2 分待機）。
+ * @param {object} app APPS の要素（app.seed が必要）
+ * @returns {boolean} 1 件以上確認できたら true
+ */
+function verifySeed(app) {
+  const s = app.seed;
+  const countCmd = `kubectl -n ${app.namespace} exec ${s.pod} -- psql -U ${s.user} -d ${s.db} -tAc "SELECT count(*) FROM ${s.table}"`;
+  const maxAttempts = 24; // 最大 24 回 × 5 秒 ≒ 2 分（Pod 起動・非同期投影を待つ）
+  const intervalMs = 5000;
+  console.log(`[${app.name}] シードデータの投入を確認します（${s.db}.${s.table}、期待: ${s.expect}）`);
+  let count = 0;
+  for (let i = 1; i <= maxAttempts; i += 1) {
+    const out = runCapture(countCmd);
+    const n = out == null ? NaN : parseInt(out.trim(), 10);
+    if (Number.isFinite(n) && n > 0) {
+      count = n;
+      break;
+    }
+    const reason = out == null ? 'DB 未接続 / Pod 未起動' : `現在 ${Number.isFinite(n) ? n : 0} 件`;
+    console.log(`  待機中... (${i}/${maxAttempts}) ${reason}`);
+    if (i < maxAttempts) sleepSync(intervalMs);
+  }
+  if (count === 0) return false;
+  console.log(`\n[${app.name}] シード確認 OK: ${s.table} = ${count} 件（期待: ${s.expect}）`);
+  run(`kubectl -n ${app.namespace} exec ${s.pod} -- psql -U ${s.user} -d ${s.db} -c "${s.detail}"`, { ignoreError: true });
+  return true;
 }
 
 /**
@@ -445,32 +496,44 @@ export default function (gulp) {
     if (app.seed) {
       gulp.task(`k8s:${app.name}:seed`, (done) => {
         requireCluster();
-        const s = app.seed;
-        const countCmd = `kubectl -n ${app.namespace} exec ${s.pod} -- psql -U ${s.user} -d ${s.db} -tAc "SELECT count(*) FROM ${s.table}"`;
-        const maxAttempts = 24; // 最大 24 回 × 5 秒 ≒ 2 分（Pod 起動・非同期投影を待つ）
-        const intervalMs = 5000;
-        console.log(`[${app.name}] シードデータの投入を確認します（${s.db}.${s.table}、期待: ${s.expect}）`);
-        let count = 0;
-        for (let i = 1; i <= maxAttempts; i += 1) {
-          const out = runCapture(countCmd);
-          const n = out == null ? NaN : parseInt(out.trim(), 10);
-          if (Number.isFinite(n) && n > 0) {
-            count = n;
-            break;
-          }
-          const reason = out == null ? 'DB 未接続 / Pod 未起動' : `現在 ${Number.isFinite(n) ? n : 0} 件`;
-          console.log(`  待機中... (${i}/${maxAttempts}) ${reason}`);
-          if (i < maxAttempts) sleepSync(intervalMs);
-        }
-        if (count === 0) {
+        if (!verifySeed(app)) {
           console.error('エラー: シードデータを確認できませんでした。考えられる原因:');
           console.error('  1. Pod が未起動 / 読み取りモデルへの投影が未完了 → しばらく待って再実行');
           console.error('  2. デプロイ済みイメージがシード追加前で古い（Flyway 未適用 / Seeder 未発火）');
           console.error(`     → アプリイメージを再ビルドし kubectl -n ${app.namespace} rollout restart で再起動後に再実行`);
           process.exit(1);
         }
-        console.log(`\n[${app.name}] シード確認 OK: ${s.table} = ${count} 件（期待: ${s.expect}）`);
-        run(`kubectl -n ${app.namespace} exec ${s.pod} -- psql -U ${s.user} -d ${s.db} -c "${s.detail}"`, { ignoreError: true });
+        done();
+      });
+    }
+
+    // DB をリセットして再シードする
+    // DB スキーマを drop（Flyway 履歴も消える）→ アプリ/ms を再起動して Flyway・各 Seeder で再投入。
+    // ES/CQRS（case-3）は ephemeral なイベントストア（axonserver）も再起動して重複を防ぐ。
+    if (app.reset && app.seed) {
+      gulp.task(`k8s:${app.name}:reset`, (done) => {
+        requireCluster();
+        const r = app.reset;
+        const s = app.seed;
+        console.log(`[${app.name}] DB をリセットします: ${r.databases.join(', ')}`);
+        r.databases.forEach((db) => {
+          // 接続を切ってからスキーマを作り直す（public スキーマごと drop で Flyway 履歴も消える）
+          const sql =
+            'SELECT pg_terminate_backend(pid) FROM pg_stat_activity ' +
+            "WHERE datname = current_database() AND pid <> pg_backend_pid(); " +
+            `DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO ${s.user};`;
+          run(`kubectl -n ${app.namespace} exec ${s.pod} -- psql -U ${s.user} -d ${db} -c "${sql}"`, { ignoreError: true });
+        });
+        console.log(`[${app.name}] 再起動してスキーマ再作成・シード再投入: ${r.restart.join(', ')}`);
+        r.restart.forEach((dep) => run(`kubectl -n ${app.namespace} rollout restart deployment/${dep}`, { ignoreError: true }));
+        r.restart.forEach((dep) =>
+          run(`kubectl -n ${app.namespace} rollout status deployment/${dep} --timeout=180s`, { ignoreError: true }),
+        );
+        if (!verifySeed(app)) {
+          console.error('エラー: リセット後にシードを確認できませんでした。Pod 起動・投影完了を待って k8s:' + app.name + ':seed で再確認してください。');
+          process.exit(1);
+        }
+        console.log(`\n[${app.name}] DB リセット & シード完了`);
         done();
       });
     }
@@ -526,6 +589,7 @@ ${lines}
     k8s:<name>:reload-frontend  frontend をユニークタグで再ビルドし反映（case2〜4）
     k8s:<name>:build      kubectl kustomize で生成結果を確認
     k8s:<name>:seed       シードデータの投入を確認（投影完了まで待機、cargo 系のみ）
+    k8s:<name>:reset      DB をリセットして再シード（スキーマ drop → 再起動 → 再投入）
     k8s:<name>:helm       Helm でデプロイ（チャートを持つアプリのみ）
     k8s:<name>:helm:delete  Helm リリースを削除
 
