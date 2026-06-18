@@ -179,7 +179,39 @@ Helm 版も 11 ワークロードが `1/1 Running` になり、ゲートウェ�
 
 ---
 
-## 4. 比較考察
+## 4. ロギング基盤（EFK + DaemonSet）
+
+[第 9 章](09-container-operations.md) の **EFK（Elasticsearch + Fluentd + Kibana）+ DaemonSet** によるログ集約パターンを、本ケースにも実装として組み込んでいます（[第 13 章](13-case-monolith-compose-vs-kustomize.md) と同じ構成）。各 Pod は標準出力にログを出すだけで、各ノードに常駐する Fluentd がノード上の全 Pod のログを収集し、Elasticsearch に蓄積、Kibana で可視化します。
+
+base に `logging/` の 4 ファイルを置き、`k8s/base/kustomization.yaml` の `resources` に追加しています（local/prod 両 overlay に含まれます）。
+
+```
+logging/
+├── elasticsearch.yaml      # ConfigMap + PVC + Service + Deployment（単一ノード）
+├── fluentd-daemonset.yaml  # ServiceAccount + ClusterRole/Binding + DaemonSet
+├── kibana.yaml             # Deployment + Service（NodePort 30054）
+└── kibana-setup-job.yaml   # index pattern logstash-* を自動作成する Job
+```
+
+実装上の勘所は第 13 章と共通です。
+
+- **Fluentd**: `hostPath` で `/var/log/containers` を読み取る。containerd の CRI ログ形式に合わせて `FLUENT_CONTAINER_TAIL_PARSER_TYPE` を指定（既定の json だと不一致）。ClusterRole はケース間で衝突しないよう `fluentd-cargo-tracker` に修飾
+- **Elasticsearch**: RWO PVC のため `strategy: Recreate`、heap の 3〜4 倍（2Gi）のメモリ上限で OOM を回避
+- **Kibana**: `kibana-setup` Job が index pattern と既定ビュー（Discover）を自動設定し、開いたらすぐ使える
+
+Kafka をイベントバックボーンとする本ケースでは、各サービスのアプリログ（Fluentd → Kibana）と、トピックを流れるメッセージそのもの（Kafka UI）を併用すると、イベント駆動の挙動を多面的に観測できます。base に置いているため `overlays/local`・`overlays/prod` のどちらでもロギング基盤が含まれます。
+
+```bash
+# アプリと同時にデプロイされる（kubectl apply -k k8s/overlays/local）
+kubectl -n cargo-tracker get pods -l app.kubernetes.io/component=logging
+kubectl -n cargo-tracker exec deploy/elasticsearch -- curl -s 'http://localhost:9200/logstash-*/_count'
+# Kibana を開く（kind では NodePort が localhost に出ないため port-forward が確実）
+kubectl -n cargo-tracker port-forward svc/kibana 18081:5601   # → http://localhost:18081/
+```
+
+---
+
+## 5. 比較考察
 
 case-4 は、Kustomize・Helm の両方が「実運用を意識した成熟度」に達しています。ここまでの章の知見と合わせて、両手段の到達点を整理します。
 
@@ -205,6 +237,7 @@ case-4 のように成熟したプロジェクトでは、**「Kustomize か Hel
 - Kafka ES/CQRS 版 Cargo Tracker（Kafka + ZooKeeper + PostgreSQL〔StatefulSet〕+ 6 サービス + gateway + frontendms）を Kustomize（overlays/local）と Helm の両方でデプロイし、11 ワークロードが `1/1 Running`、ゲートウェイ経由の read エンドポイントが `200` を返すことを確認しました
 - Kustomize は base + overlay で環境差分を宣言的に管理し、Helm は `_helpers.tpl` + values でテンプレートを成熟させます
 - 成熟したプロジェクトでは両手段を併用し、GitOps（overlay）と配布（チャート）で使い分けることも現実的です
+- 第 9 章の EFK + DaemonSet を base に組み込み、local/prod 両 overlay で各サービスのログを Fluentd（DaemonSet）→ Kibana で観測できるようにしました
 - 次章では、第 13〜16 章の 4 ケースを横断し、アーキテクチャとデプロイ手段の関係を総括します
 
 ---

@@ -245,7 +245,39 @@ helm uninstall cargo-event -n cargo-event
 
 ---
 
-## 4. 比較考察
+## 4. ロギング基盤（EFK + DaemonSet）
+
+[第 9 章](09-container-operations.md) の **EFK（Elasticsearch + Fluentd + Kibana）+ DaemonSet** によるログ集約パターンを、本ケースにも実装として組み込んでいます（[第 13 章](13-case-monolith-compose-vs-kustomize.md) と同じ構成）。各 Pod は標準出力にログを出すだけで、各ノードに常駐する Fluentd がノード上の全 Pod のログを収集し、Elasticsearch に蓄積、Kibana で可視化します。
+
+`k8s/kustomize/base/logging/` に 4 ファイルを置き、`kustomization.yaml` の `resources` に追加しています。
+
+```
+logging/
+├── elasticsearch.yaml      # ConfigMap + PVC + Service + Deployment（単一ノード）
+├── fluentd-daemonset.yaml  # ServiceAccount + ClusterRole/Binding + DaemonSet
+├── kibana.yaml             # Deployment + Service（NodePort 30052）
+└── kibana-setup-job.yaml   # index pattern logstash-* を自動作成する Job
+```
+
+実装上の勘所は第 13 章と共通です。
+
+- **Fluentd**: `hostPath` で `/var/log/containers` を読み取る。containerd の CRI ログ形式に合わせて `FLUENT_CONTAINER_TAIL_PARSER_TYPE` を指定（既定の json だと不一致）。ClusterRole はケース間で衝突しないよう `fluentd-cargo-event` に修飾
+- **Elasticsearch**: RWO PVC のため `strategy: Recreate`、heap の 3〜4 倍（2Gi）のメモリ上限で OOM を回避
+- **Kibana**: `kibana-setup` Job が index pattern と既定ビュー（Discover）を自動設定し、開いたらすぐ使える
+
+マイクロサービス構成では、Fluentd を 1 つの DaemonSet として常駐させるだけで、authms・bookingms・routingms… といった多数のサービスや RabbitMQ・PostgreSQL のログを、横断的に 1 か所（Kibana）で追えるのが利点です。
+
+```bash
+# アプリと同時にデプロイされる（kubectl apply -k k8s/kustomize/base）
+kubectl -n cargo-event get pods -l app.kubernetes.io/component=logging
+kubectl -n cargo-event exec deploy/elasticsearch -- curl -s 'http://localhost:9200/logstash-*/_count'
+# Kibana を開く（kind では NodePort が localhost に出ないため port-forward が確実）
+kubectl -n cargo-event port-forward svc/kibana 18081:5601   # → http://localhost:18081/
+```
+
+---
+
+## 5. 比較考察
 
 イベント駆動マイクロサービス（8 アプリ + 2 インフラ）という構成で、両手段の差は前章のモノリスより明確になります。
 
@@ -273,6 +305,7 @@ helm uninstall cargo-event -n cargo-event
 - イベント駆動マイクロサービス版 Cargo Tracker（8 アプリ + PostgreSQL + RabbitMQ）を Kustomize と Helm の両方でデプロイし、いずれも 10 Pod が `1/1 Running` になり、ゲートウェイ経由の疎通を確認しました
 - Kustomize は同型サービスを個別ファイルで明示的に書き下し、Helm は `values` のリスト + テンプレートのループで重複を排除します
 - Helm はリリース管理（リビジョン・ロールバック）を提供し、Kustomize は生 YAML に近い透明性を提供します
+- 第 9 章の EFK + DaemonSet を本ケースにも組み込み、Fluentd（DaemonSet）が多数のサービスのログを横断的に収集して Kibana で観測できるようにしました
 - 次章では、同じドメインを ES/CQRS（Axon）で実装した case-3 を題材に、引き続き Kustomize と Helm を比較します
 
 ---

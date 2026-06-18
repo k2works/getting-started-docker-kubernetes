@@ -237,7 +237,69 @@ curl http://localhost:18081/actuator/health
 
 ---
 
-## 5. 比較考察
+## 5. ロギング基盤（EFK + DaemonSet）
+
+[第 9 章](09-container-operations.md) で原則として学んだ **EFK（Elasticsearch + Fluentd + Kibana）+ DaemonSet** のログ集約パターンを、本ケースにも実装として組み込んでいます。各 Pod は標準出力にログを出すだけで、ノード単位で常駐する Fluentd がそれを収集し、Elasticsearch に蓄積、Kibana で検索・可視化します。
+
+`k8s/kustomize/logging/` に次の 4 ファイルを置き、`kustomization.yaml` の `resources` に追加しています。
+
+```
+logging/
+├── elasticsearch.yaml      # ConfigMap + PVC + Service + Deployment（単一ノード）
+├── fluentd-daemonset.yaml  # ServiceAccount + ClusterRole/Binding + DaemonSet
+├── kibana.yaml             # Deployment + Service（NodePort 30051）
+└── kibana-setup-job.yaml   # index pattern を自動作成する Job
+```
+
+### Fluentd を DaemonSet で常駐させる
+
+第 9 章のとおり、Fluentd は各ノードの `/var/log/containers` を `hostPath` で読み取り、ノード上の全 Pod のログをまとめて収集します。ここで本実装固有の要点が **ログ形式のパース**です。近年の Kubernetes（kind / Docker Desktop など）は containerd を使い、ログが CRI 形式（`<time> stdout F <message>`）で書かれます。Fluentd 既定の JSON パーサのままだと一致せず警告が出続けるため、環境変数で CRI 用のパーサを指定します。
+
+```yaml
+          env:
+            - name: FLUENT_ELASTICSEARCH_HOST
+              value: "elasticsearch"
+            # containerd の CRI ログ形式に合わせる（既定の json だと不一致になる）
+            - name: FLUENT_CONTAINER_TAIL_PARSER_TYPE
+              value: "/^(?<time>.+) (?<stream>stdout|stderr) (?<logtag>[FP]) (?<log>.*)$/"
+```
+
+DaemonSet は Kubernetes API から Pod のメタデータを付与するため、`ServiceAccount` と読み取り専用の `ClusterRole`（`pods`・`namespaces` への get/list/watch）を与えています。ClusterRole はクラスタスコープのため、ケース間で名前が衝突しないよう `fluentd-cargo-monolith` のように namespace で修飾しています。
+
+### Elasticsearch の運用上の勘所
+
+ログは蓄積されるデータなので `PersistentVolumeClaim` で永続化します。学習用の単一ノード構成（`discovery.type=single-node`）ですが、2 点の実運用上の注意があります。
+
+- **メモリ**: JVM heap（`-Xms512m -Xmx512m`）に加え、Lucene の mmap やダイレクトバッファなどのオフヒープが必要です。コンテナのメモリ上限を heap と同程度にすると OOMKilled になるため、`limits.memory` は heap の 3〜4 倍（2Gi）を確保します。
+- **更新戦略**: 単一インスタンスが RWO の PVC を握るため、`strategy: Recreate` を指定します。既定の RollingUpdate だと旧 Pod の終了前に新 Pod が起動し、同じデータディレクトリを奪い合って `failed to obtain node locks` で起動に失敗します。
+
+```yaml
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate          # RWO PVC のため旧 Pod を終了してから新 Pod を起動
+```
+
+### Kibana を「開いたらすぐ使える」状態にする
+
+Kibana は通常、初回に手動で index pattern を作成する必要があります。これを `kibana-setup` という `Job` で自動化し、Kibana の起動を待って index pattern `logstash-*` を作成、既定ビューを Discover に設定します。デプロイ後にブラウザを開けば、設定なしでログ検索を始められます。
+
+```bash
+# ロギング基盤はアプリと同時にデプロイされる（kubectl apply -k k8s/kustomize）
+kubectl -n cargo-monolith get pods -l app.kubernetes.io/component=logging
+
+# 収集状況の確認（logstash-* にログが蓄積される）
+kubectl -n cargo-monolith exec deploy/elasticsearch -- curl -s 'http://localhost:9200/logstash-*/_count'
+
+# Kibana を開く（kind では NodePort が localhost に出ないため port-forward が確実）
+kubectl -n cargo-monolith port-forward svc/kibana 18081:5601   # → http://localhost:18081/
+```
+
+第 9 章で原則として学んだ EFK + DaemonSet を、各ケースの構成に組み込むことで、デプロイした瞬間からアプリ・インフラ双方のログを一元的に観測できます。
+
+---
+
+## 6. 比較考察
 
 モノリス（アプリ 1 + DB 1）という小さな構成では、両手段の差は次のように整理できます。
 
@@ -266,6 +328,7 @@ curl http://localhost:18081/actuator/health
 - モノリス版 Cargo Tracker（Spring Boot + PostgreSQL）を Docker Compose と Kustomize の両方でデプロイし、いずれも `/actuator/health` が UP になることを確認しました
 - Compose の `environment`・named volume・`ports`・`healthcheck` は、Kubernetes ではそれぞれ `Secret`・PVC・`Service`/`Ingress`・`Probe` に対応します
 - 構成要素が少ないモノリスでは、Compose の簡潔さと Kustomize の運用機能のトレードオフは緩やかです
+- 第 9 章の EFK + DaemonSet を本ケースに組み込み、Fluentd（DaemonSet）→ Elasticsearch → Kibana のログ集約を `k8s/kustomize/logging/` で宣言しました（CRI ログ対応・ES の Recreate 戦略・index pattern の自動作成が実装上の勘所）
 - 次章では、構成要素が大幅に増えるイベント駆動マイクロサービス（case-2）を題材に、Kustomize と Helm を比較します
 
 ---
