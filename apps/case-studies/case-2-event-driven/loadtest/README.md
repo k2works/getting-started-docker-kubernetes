@@ -10,8 +10,10 @@
 
 | ファイル | 役割 |
 | :--- | :--- |
-| `locustfile.py` | 負荷シナリオ（ログイン → JWT 取得 → 読み取り系 GET） |
-| `compose.loadtest.yaml` | Locust コンテナの起動定義（Web UI: 8089） |
+| `locustfile.py` | 負荷シナリオ（ログイン → JWT 取得 → 読み取り系 GET、Compose 版・k8s 版で共有） |
+| `compose.loadtest.yaml` | Docker Compose 版 Locust の起動定義（Web UI: 8089） |
+| `kustomization.yaml` | Kubernetes 版 Locust の Kustomize 定義 |
+| `k8s-locust.yaml` | Kubernetes 版 Locust の Deployment / Service |
 
 ## 認証
 
@@ -52,6 +54,26 @@ npx gulp loadtest:case2:down
 npx gulp loadtest:case2:headless
 
 USERS=100 SPAWN=10 DURATION=3m npx gulp loadtest:case2:headless
+```
+
+## Kubernetes 版
+
+アプリと同じ名前空間（`cargo-event`）に Locust をデプロイし、クラスタ内のサービス
+`gatewayms:8080` へ直接負荷をかけます。シナリオは `configMapGenerator` で ConfigMap
+として配布します（JWT ログインは locustfile 内で実施、既定 `admin` / `password`）。
+
+```bash
+# 1. アプリ本体を Kubernetes にデプロイ
+npx gulp k8s:case2
+
+# 2. Locust をデプロイ
+npx gulp loadtest:case2:k8s
+
+# 3. Web UI を port-forward して開く（http://localhost:8089、Ctrl+C で終了）
+npx gulp loadtest:case2:k8s:open
+
+# 4. 削除
+npx gulp loadtest:case2:k8s:delete
 ```
 
 ## 補足

@@ -1,0 +1,62 @@
+# ケーススタディ1（モノリス版）の Locust 負荷テスト（Kubernetes 版）。
+#
+# アプリと同じ名前空間（cargo-monolith）に Locust をデプロイし、クラスタ内のサービス
+# cargo-tracker:80 へ直接負荷をかける（第 12 章「12.3 負荷テスト」の「負荷生成側と
+# テスト対象を同一オーケストレータに載せる」考え方を Kubernetes に適用）。
+# シナリオ（locustfile.py）は kustomization.yaml の configMapGenerator で配布する。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locust
+  labels:
+    app: locust
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: locust
+  template:
+    metadata:
+      labels:
+        app: locust
+    spec:
+      containers:
+        - name: locust
+          image: locustio/locust:2.32.5
+          # クラスタ内のアプリサービスへ向ける（DNS は同一名前空間内で解決）。
+          args:
+            - "-f"
+            - "/mnt/locust/locustfile.py"
+            - "--host"
+            - "http://cargo-tracker:80"
+          ports:
+            - name: web
+              containerPort: 8089
+          volumeMounts:
+            - name: scenario
+              mountPath: /mnt/locust
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: scenario
+          configMap:
+            name: locust-scenario
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: locust
+  labels:
+    app: locust
+spec:
+  selector:
+    app: locust
+  ports:
+    - name: web
+      port: 8089
+      targetPort: web

@@ -10,7 +10,7 @@
  */
 
 import path from 'path';
-import { execSync } from 'child_process';
+import { execSync, spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { cleanDockerEnv, isDockerAvailable, openUrl } from './shared.js';
 
@@ -28,24 +28,33 @@ const LOADTESTS = [
     label: 'ケーススタディ1 モノリス',
     dir: 'apps/case-studies/case-1-monolith/loadtest',
     target: 'http://host.docker.internal:18080',
+    // k8s 版: アプリと同じ名前空間に Locust をデプロイし、クラスタ内サービスへ負荷をかける
+    namespace: 'cargo-monolith',
+    k8sTarget: 'http://cargo-tracker:80',
   },
   {
     name: 'case2',
     label: 'ケーススタディ2 イベント駆動マイクロサービス',
     dir: 'apps/case-studies/case-2-event-driven/loadtest',
     target: 'http://host.docker.internal:9080',
+    namespace: 'cargo-event',
+    k8sTarget: 'http://gatewayms:8080',
   },
   {
     name: 'case3',
     label: 'ケーススタディ3 ES/CQRS（Axon）',
     dir: 'apps/case-studies/case-3-escqrs-axon/loadtest',
     target: 'http://host.docker.internal:9081',
+    namespace: 'cargo-axon',
+    k8sTarget: 'http://gatewayms:8080',
   },
   {
     name: 'case4',
     label: 'ケーススタディ4 ES/CQRS（Kafka）',
     dir: 'apps/case-studies/case-4-escqrs-kafka/loadtest',
     target: 'http://host.docker.internal:9082',
+    namespace: 'cargo-tracker',
+    k8sTarget: 'http://gatewayms:8080',
   },
 ];
 
@@ -73,6 +82,16 @@ function run(command, cwd, options = {}) {
 function requireDocker() {
   if (!isDockerAvailable()) {
     console.error('エラー: Docker デーモンに接続できません。Docker Desktop 等を起動してください。');
+    process.exit(1);
+  }
+}
+
+/** kubectl が利用可能でクラスタに接続できるか確認する */
+function requireCluster() {
+  try {
+    execSync('kubectl cluster-info', { stdio: 'ignore' });
+  } catch {
+    console.error('エラー: Kubernetes クラスタに接続できません。kubectl のコンテキストを確認してください。');
     process.exit(1);
   }
 }
@@ -109,11 +128,11 @@ export default function (gulp) {
     gulp.task(`loadtest:${lt.name}:headless`, (done) => {
       requireDocker();
       const users = process.env.USERS || '50';
-      const spawn = process.env.SPAWN || '5';
+      const spawnRate = process.env.SPAWN || '5';
       const duration = process.env.DURATION || '1m';
-      console.log(`[${lt.name}] ヘッドレス実行: ${users} ユーザー / 毎秒 ${spawn} 増 / ${duration}`);
+      console.log(`[${lt.name}] ヘッドレス実行: ${users} ユーザー / 毎秒 ${spawnRate} 増 / ${duration}`);
       run(
-        `${compose} run --rm locust --headless -u ${users} -r ${spawn} -t ${duration}`,
+        `${compose} run --rm locust --headless -u ${users} -r ${spawnRate} -t ${duration}`,
         lt.dir,
         { ignoreError: true },
       );
@@ -134,6 +153,54 @@ export default function (gulp) {
       run(`${compose} logs -f --tail=100`, lt.dir, { ignoreError: true });
       done();
     });
+
+    // -- Kubernetes 版 ------------------------------------------------------
+    // アプリと同じ名前空間に Locust をデプロイし、クラスタ内サービスへ負荷をかける。
+
+    // デプロイ（loadtest:<name>:k8s）
+    gulp.task(`loadtest:${lt.name}:k8s`, (done) => {
+      requireCluster();
+      run(`kubectl apply -k ${lt.dir}`, undefined, { ignoreError: false });
+      run(`kubectl -n ${lt.namespace} rollout status deployment/locust --timeout=120s`, undefined, {
+        ignoreError: true,
+      });
+      console.log(`\n[${lt.name}] Locust を ${lt.namespace} にデプロイしました（負荷対象: ${lt.k8sTarget}）`);
+      console.log(`[${lt.name}] ※アプリ本体が未デプロイなら先に npx gulp k8s:${lt.name} を実行してください`);
+      console.log(`[${lt.name}] Web UI を開く: npx gulp loadtest:${lt.name}:k8s:open`);
+      console.log(`[${lt.name}] 削除: npx gulp loadtest:${lt.name}:k8s:delete`);
+      done();
+    });
+
+    // Web UI を port-forward して開く（Ctrl+C で終了）
+    gulp.task(`loadtest:${lt.name}:k8s:open`, (done) => {
+      requireCluster();
+      const local = 8089;
+      const url = `http://localhost:${local}`;
+      console.log(`[${lt.name}] port-forward 中: ${url}（終了は Ctrl+C）`);
+      const pf = spawn(
+        'kubectl',
+        ['-n', lt.namespace, 'port-forward', 'svc/locust', `${local}:8089`],
+        { stdio: 'inherit' },
+      );
+      const timer = setTimeout(() => {
+        try {
+          openUrl(url);
+        } catch {
+          console.log(`ブラウザを開けませんでした。${url} を手動で開いてください。`);
+        }
+      }, 3000);
+      pf.on('exit', () => {
+        clearTimeout(timer);
+        done();
+      });
+    });
+
+    // 削除（loadtest:<name>:k8s:delete）
+    gulp.task(`loadtest:${lt.name}:k8s:delete`, (done) => {
+      requireCluster();
+      run(`kubectl delete -k ${lt.dir} --ignore-not-found`, undefined, { ignoreError: true });
+      done();
+    });
   });
 
   // ヘルプ
@@ -147,18 +214,24 @@ export default function (gulp) {
 ${list}
 
   各ケースで利用できるアクション:
+    [Docker Compose 版]（ホスト公開ポートへ host.docker.internal 経由で負荷）
     loadtest:<name>            Locust Web UI を起動（= :up、http://localhost:8089）
     loadtest:<name>:up         Locust Web UI を起動
     loadtest:<name>:headless   UI なしで一定時間実行して終了（USERS/SPAWN/DURATION で調整）
     loadtest:<name>:down       Locust を停止・破棄
     loadtest:<name>:logs       Locust のログを表示（follow）
 
+    [Kubernetes 版]（アプリと同じ名前空間に Locust をデプロイしクラスタ内サービスへ負荷）
+    loadtest:<name>:k8s        Locust をデプロイ（kubectl apply -k）
+    loadtest:<name>:k8s:open   Web UI を port-forward して開く（http://localhost:8089、Ctrl+C で終了）
+    loadtest:<name>:k8s:delete Locust を削除
+
   前提:
-    アプリ本体を先に起動しておくこと（例: npx gulp dev:case4）。
-    Locust はホスト公開ポートへ host.docker.internal 経由で負荷をかける。
+    アプリ本体を先に起動しておくこと（Compose: npx gulp dev:case4 / k8s: npx gulp k8s:case4）。
 
   例: npx gulp dev:case4 && npx gulp loadtest:case4
       USERS=100 SPAWN=10 DURATION=3m npx gulp loadtest:case4:headless
+      npx gulp k8s:case4 && npx gulp loadtest:case4:k8s && npx gulp loadtest:case4:k8s:open
     `);
     done();
   });

@@ -1,0 +1,60 @@
+# ケーススタディ2（イベント駆動マイクロサービス版）の Locust 負荷テスト（Kubernetes 版）。
+#
+# アプリと同じ名前空間（cargo-event）に Locust をデプロイし、クラスタ内のサービス
+# gatewayms:8080 へ直接負荷をかける。シナリオ（locustfile.py）は kustomization.yaml の
+# configMapGenerator で配布する。JWT ログイン（既定 admin/password）は locustfile 内で行う。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locust
+  labels:
+    app: locust
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: locust
+  template:
+    metadata:
+      labels:
+        app: locust
+    spec:
+      containers:
+        - name: locust
+          image: locustio/locust:2.32.5
+          args:
+            - "-f"
+            - "/mnt/locust/locustfile.py"
+            - "--host"
+            - "http://gatewayms:8080"
+          ports:
+            - name: web
+              containerPort: 8089
+          volumeMounts:
+            - name: scenario
+              mountPath: /mnt/locust
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: scenario
+          configMap:
+            name: locust-scenario
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: locust
+  labels:
+    app: locust
+spec:
+  selector:
+    app: locust
+  ports:
+    - name: web
+      port: 8089
+      targetPort: web
