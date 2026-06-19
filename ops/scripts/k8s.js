@@ -424,6 +424,15 @@ export default function (gulp) {
           declared.push({ label: 'Kibana（ログ可視化）', svc: 'kibana', port: 5601, note: '※index pattern は自動作成済み（開くと Discover が表示される）' });
         }
         (app.consoles || []).forEach((c) => declared.push({ label: c.label, svc: c.svc, port: c.port, note: c.note || '' }));
+        // 負荷テスト（Locust）をデプロイ済みなら Web UI（8089）も開く。
+        // 未デプロイなら下のフィルタで svc/locust が見つからずスキップされる。
+        declared.push({
+          label: 'Locust（負荷テスト Web UI）',
+          svc: 'locust',
+          port: 8089,
+          localPort: 8089,
+          note: `※負荷テストをデプロイ済みの場合のみ（npx gulp loadtest:${app.name}:k8s）`,
+        });
         // 未デプロイのコンソール（svc が存在しない）はスキップして警告する。
         // これがないと存在しない svc への port-forward が失敗し、ローカルポートが死んでしまう。
         const consoles = declared.filter((c) => {
@@ -434,8 +443,11 @@ export default function (gulp) {
           }
           return true;
         });
-        consoles.forEach((c, i) => {
-          c.local = 18081 + i;
+        // 固定ローカルポート（localPort、例: Locust の 8089）はそのまま使い、
+        // それ以外は 18081 から順に割り当てる。
+        let seq = 18081;
+        consoles.forEach((c) => {
+          c.local = c.localPort || seq++;
           c.url = `http://localhost:${c.local}/`;
         });
         console.log(`[${app.name}] port-forward 中: ${url}（終了は Ctrl+C）`);
@@ -584,7 +596,7 @@ ${lines}
     k8s:<name>:apply      Kustomize で適用（frontend は最新ビルドを自動反映）
     k8s:<name>:delete     Kustomize リソースを削除
     k8s:<name>:status     Pod / Service / Ingress を表示
-    k8s:<name>:open       アプリと管理コンソール（Kibana / RabbitMQ / Axon Server 等）を port-forward して開く（Ctrl+C で終了）
+    k8s:<name>:open       アプリと管理コンソール（Kibana / RabbitMQ / Axon Server / Locust 8089 等）を port-forward して開く（Ctrl+C で終了）
     k8s:<name>:reload     アプリイメージをユニークタグで再ビルドし反映（case1）
     k8s:<name>:reload-frontend  frontend をユニークタグで再ビルドし反映（case2〜4）
     k8s:<name>:build      kubectl kustomize で生成結果を確認
