@@ -85,6 +85,7 @@ nav:
           - 第 15 章 ES/CQRS(Axon)のデプロイ（Kustomize 対 Helm）: article/getting-start-docker-kubernetes/15-case-escqrs-axon-kustomize-vs-helm.md
           - 第 16 章 ES/CQRS(Kafka)のデプロイ（Kustomize 対 Helm）: article/getting-start-docker-kubernetes/16-case-escqrs-kafka-kustomize-vs-helm.md
           - 第 17 章 ケーススタディ実装比較まとめ: article/getting-start-docker-kubernetes/17-case-comparison-summary.md
+          - 第 18 章 ケーススタディの負荷テスト: article/getting-start-docker-kubernetes/18-case-load-testing.md
           - 付録 A 開発ツールのセットアップ: article/getting-start-docker-kubernetes/appendix-a-dev-tools-setup.md
           - 付録 B さまざまなコンテナオーケストレーション環境: article/getting-start-docker-kubernetes/appendix-b-orchestration-environments.md
           - 付録 C コンテナ開発・運用の Tips: article/getting-start-docker-kubernetes/appendix-c-tips.md

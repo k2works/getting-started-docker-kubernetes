@@ -128,4 +128,5 @@ case-4 は Kustomize と Helm の**両方**を保守していました。GitOps 
 ---
 
 - 前の章: [第 16 章 ES/CQRS マイクロサービス（Kafka）のデプロイ — Kustomize 対 Helm](16-case-escqrs-kafka-kustomize-vs-helm.md)
+- 次の章: [第 18 章 ケーススタディの負荷テスト](18-case-load-testing.md)
 - シリーズ目次: [Docker/Kubernetes 実践コンテナ解説](index.md)

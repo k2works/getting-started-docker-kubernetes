@@ -49,6 +49,7 @@ Docker と Kubernetes を使って、コンテナによるアプリケーショ�
 | [第 15 章 ES/CQRS マイクロサービス（Axon）のデプロイ](15-case-escqrs-axon-kustomize-vs-helm.md) | Kustomize 対 Helm |
 | [第 16 章 ES/CQRS マイクロサービス（Kafka）のデプロイ](16-case-escqrs-kafka-kustomize-vs-helm.md) | Kustomize 対 Helm |
 | [第 17 章 ケーススタディ実装比較まとめ](17-case-comparison-summary.md) | 全アーキテクチャ × デプロイ手段の総括 |
+| [第 18 章 ケーススタディの負荷テスト](18-case-load-testing.md) | Locust（Compose 版 / Kubernetes 版）で 4 ケースに負荷をかける |
 
 ### 付録
 
