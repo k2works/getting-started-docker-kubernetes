@@ -1,0 +1,23 @@
+# ケーススタディ4（ES/CQRS Kafka 版）の Locust 負荷テスト用 Compose 構成。
+#
+# アプリ本体は dev:case4 で起動し、gateway をホスト 9082 に公開する。
+# Locust は別 Compose として独立させ、host.docker.internal 経由で gateway に負荷をかける。
+#
+# 使い方:
+#   1. アプリ本体を起動:   npx gulp dev:case4
+#   2. Locust を起動:       npx gulp loadtest:case4   → http://localhost:8089
+name: loadtest-case4
+
+services:
+  locust:
+    image: locustio/locust:2.32.5
+    ports:
+      - "8089:8089"
+    volumes:
+      - ./locustfile.py:/mnt/locust/locustfile.py:ro
+    environment:
+      LOCUST_LOCUSTFILE: /mnt/locust/locustfile.py
+      # 負荷対象。ホストに公開された 9082 番（gatewayms: 9082:8080）へ向ける。
+      LOCUST_HOST: ${TARGET_URL:-http://host.docker.internal:9082}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

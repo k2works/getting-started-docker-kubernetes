@@ -1,0 +1,34 @@
+# ケーススタディ1（モノリス版）の Locust 負荷テスト用 Compose 構成。
+#
+# 第 12 章「12.3 負荷テスト」では負荷生成側（Locust）とテスト対象を別々の Compose
+# 定義に分け、共有ネットワークでつないでいた。本プロジェクトのケーススタディは
+# dev:case1（compose/compose.yaml）でアプリ本体を起動し、ホストにポートを公開する。
+# そこで Locust 側は別 Compose として独立させ、ホスト公開ポート（18080）へ
+# host.docker.internal 経由で負荷をかける（どの compose ネットワークでも到達できる）。
+#
+# 使い方:
+#   1. アプリ本体を起動:   npx gulp dev:case1
+#   2. Locust を起動:       npx gulp loadtest:case1   → http://localhost:8089
+#   （または直接: docker compose -f compose.loadtest.yaml up）
+name: loadtest-case1
+
+services:
+  locust:
+    image: locustio/locust:2.32.5
+    ports:
+      # Locust の Web UI。ブラウザから http://localhost:8089 で操作する。
+      - "8089:8089"
+    volumes:
+      # シナリオファイルをマウントする（イメージを再ビルドせずに差し替えられる）。
+      - ./locustfile.py:/mnt/locust/locustfile.py:ro
+    environment:
+      # CLI オプションは LOCUST_* 環境変数でも指定できる。
+      LOCUST_LOCUSTFILE: /mnt/locust/locustfile.py
+      # 負荷対象。ホストに公開された 18080 番（compose の app: 18080:8080）へ向ける。
+      LOCUST_HOST: ${TARGET_URL:-http://host.docker.internal:18080}
+      # 公開追跡の詳細を叩く場合は有効な追跡番号を渡す（未指定なら当該タスクはスキップ）。
+      TRACKING_NUMBER: ${TRACKING_NUMBER:-}
+    extra_hosts:
+      # Linux でも host.docker.internal でホストへ到達できるようにする
+      # （Docker Desktop では既定で解決できるが、互換のため明示する）。
+      - "host.docker.internal:host-gateway"
